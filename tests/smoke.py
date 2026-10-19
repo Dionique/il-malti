@@ -25,6 +25,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # --root DIR serves another directory (e.g. the built dist/ bundle)
 if "--root" in sys.argv:
     ROOT = os.path.abspath(sys.argv[sys.argv.index("--root") + 1])
+LIVE_URL = sys.argv[sys.argv.index("--url") + 1] if "--url" in sys.argv else None
 
 failures = []
 
@@ -53,8 +54,12 @@ def start_server():
 
 
 def main():
-    httpd, port = start_server()
-    url = "http://127.0.0.1:%d/index.html" % port
+    httpd = None
+    if LIVE_URL:
+        url = LIVE_URL
+    else:
+        httpd, port = start_server()
+        url = "http://127.0.0.1:%d/index.html" % port
     console_errors = []
 
     with sync_playwright() as p:
@@ -392,7 +397,8 @@ def main():
 
         browser.close()
 
-    httpd.shutdown()
+    if httpd:
+        httpd.shutdown()
 
     check("console errors", console_errors, [])
 
