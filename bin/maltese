@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+#
+# Manage the local production server for the Il-Malti app (macOS launchd).
+#
+#   bin/maltese install     # install the launch agent (autostart at login)
+#   bin/maltese uninstall   # remove the launch agent
+#   bin/maltese start       # load / start the agent
+#   bin/maltese stop        # unload / stop the agent
+#   bin/maltese restart     # stop + start
+#   bin/maltese status      # show agent state, port and URL
+#   bin/maltese url         # print the URL only
+#   bin/maltese logs        # tail the server log
+
+set -euo pipefail
+
+LABEL="com.maltese.static"
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+TEMPLATE="$REPO/deploy/$LABEL.plist"
+PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+LOG="$HOME/Library/Logs/maltese-static.log"
+PORT="${PORT:-8080}"
+DOMAIN="gui/$(id -u)"
+TARGET="$DOMAIN/$LABEL"
+
+NODE="$(command -v node || true)"
+
+die() { printf 'error: %s\n' "$*" >&2; exit 1; }
+
+require_node() {
+  [ -n "$NODE" ] || die "node not found in PATH. Install it (brew install node) and retry."
+}
+
+installed() { [ -f "$PLIST" ]; }
+
+loaded() { launchctl print "$TARGET" >/dev/null 2>&1; }
+
+do_install() {
+  require_node
+  mkdir -p "$HOME/Library/LaunchAgents" "$(dirname "$LOG")"
+  sed -e "s|__NODE__|$NODE|g" \
+      -e "s|__REPO__|$REPO|g" \
+      -e "s|__PORT__|$PORT|g" \
+      -e "s|__LOG__|$LOG|g" \
+      "$TEMPLATE" > "$PLIST"
+  echo "installed $PLIST"
+  do_start
+}
+
+do_uninstall() {
+  do_stop || true
+  rm -f "$PLIST"
+  echo "removed $PLIST"
+}
+
+do_start() {
+  installed || die "not installed. Run: bin/maltese install"
+  if loaded; then
+    launchctl kickstart -k "$TARGET" || die "kickstart failed"
+  else
+    local try=0 err
+    err="$(mktemp)"
+    until launchctl bootstrap "$DOMAIN" "$PLIST" 2>"$err"; do
+      try=$((try + 1))
+      if [ "$try" -ge 10 ]; then
+        cat "$err" >&2
+        rm -f "$err"
+        die "bootstrap failed after $try attempts"
+      fi
+      sleep 1
+    done
+    rm -f "$err"
+  fi
+  sleep 1
+  do_status
+}
+
+do_stop() {
+  if loaded; then
+    launchctl bootout "$TARGET" >/dev/null 2>&1 || true
+    local try=0
+    while loaded && [ "$try" -lt 10 ]; do
+      sleep 1
+      try=$((try + 1))
+    done
+    if loaded; then
+      die "could not stop $LABEL"
+    fi
+    echo "stopped $LABEL"
+  else
+    echo "$LABEL is not loaded"
+  fi
+}
+
+do_status() {
+  if loaded; then
+    echo "agent:   loaded ($TARGET)"
+  else
+    echo "agent:   not loaded"
+  fi
+  installed && echo "plist:   $PLIST" || echo "plist:   missing (run install)"
+  local pid
+  pid="$(launchctl print "$TARGET" 2>/dev/null | awk '/^\tpid = /{print $3}' || true)"
+  [ -n "${pid:-}" ] && echo "pid:     $pid" || echo "pid:     -"
+  if curl -fsS -o /dev/null "http://127.0.0.1:$PORT/index.html" 2>/dev/null; then
+    echo "health:  ok"
+  else
+    echo "health:  unreachable on port $PORT"
+  fi
+  echo "url:     $(do_url)"
+  echo "log:     $LOG"
+}
+
+do_url() { echo "http://maltese.localhost:$PORT"; }
+
+do_logs() { tail -n 40 -f "$LOG"; }
+
+case "${1:-status}" in
+  install)   do_install ;;
+  uninstall) do_uninstall ;;
+  start)     do_start ;;
+  stop)      do_stop ;;
+  restart)   do_stop; sleep 1; do_start ;;
+  status)    do_status ;;
+  url)       do_url ;;
+  logs)      do_logs ;;
+  *) die "unknown command: $1 (install|uninstall|start|stop|restart|status|url|logs)" ;;
+esac

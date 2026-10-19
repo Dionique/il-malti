@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Il-Malti — учим мальтийский</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span class="logo">MT</span> Il-Malti</div>
+    <nav class="tabs" id="tabs">
+      <button class="tab" data-tab="words">Слова</button>
+      <button class="tab" data-tab="sentences">Предложения</button>
+      <button class="tab" data-tab="pairs">Сочетания</button>
+      <button class="tab" data-tab="alphabet">Алфавит</button>
+      <button class="tab" data-tab="progress">Прогресс</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="view-words" class="view">
+      <div class="bar">
+        <label>Тема <select id="w-topic"></select></label>
+        <label>Направление
+          <select id="w-dir">
+            <option value="mt-ru">мальтийский → русский</option>
+            <option value="ru-mt">русский → мальтийский</option>
+          </select>
+        </label>
+        <button id="w-shuffle" class="btn ghost small">Перемешать</button>
+        <label>Новых в день
+          <select id="w-limit">
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="15">15</option>
+            <option value="20">20</option>
+            <option value="30">30</option>
+            <option value="0">без лимита</option>
+          </select>
+        </label>
+        <label class="toggle"><input type="checkbox" id="w-translit" checked> Транскрипция</label>
+        <label class="toggle"><input type="checkbox" id="w-examples-toggle" checked> Примеры</label>
+      </div>
+      <div class="counter" id="w-counter"></div>
+
+      <div class="card" id="w-card">
+        <div class="card-tag" id="w-tag"></div>
+        <div class="card-main" id="w-front"></div>
+        <div class="translit" id="w-translit-front" hidden></div>
+        <div class="card-back" id="w-back" hidden></div>
+        <div class="translit" id="w-translit-back" hidden></div>
+        <div class="card-extra" id="w-back-detail" hidden></div>
+        <div id="w-examples"></div>
+      </div>
+
+      <div class="done" id="w-done" hidden>
+        <div class="done-title" id="w-done-title">На сегодня всё</div>
+        <div class="done-text" id="w-done-text"></div>
+        <div class="actions">
+          <button id="w-bypass" class="btn">Учить сверх лимита</button>
+          <button id="w-review-all" class="btn ghost">Повторить всё</button>
+        </div>
+      </div>
+
+      <div class="actions" id="w-actions">
+        <button id="w-show" class="btn">Показать ответ</button>
+        <div id="w-grade" class="grade" hidden>
+          <button id="w-no" class="btn bad">Не знаю</button>
+          <button id="w-yes" class="btn good">Знаю</button>
+        </div>
+      </div>
+
+      <div class="speak-row" id="w-speak-row">
+        <button id="w-speak" class="btn ghost small">Произнести</button>
+      </div>
+    </section>
+
+    <section id="view-sentences" class="view" hidden>
+      <div class="bar">
+        <label>Тема <select id="s-topic"></select></label>
+        <label>Режим
+          <select id="s-mode">
+            <option value="build">Собрать из слов</option>
+            <option value="type">Перевод (ввод)</option>
+            <option value="card">Карточка</option>
+          </select>
+        </label>
+        <button id="s-next" class="btn ghost small">Другое предложение</button>
+        <label>Новых фраз в день
+          <select id="s-limit">
+            <option value="3">3</option>
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="15">15</option>
+            <option value="0">без лимита</option>
+          </select>
+        </label>
+      </div>
+      <div class="counter" id="s-counter"></div>
+
+      <div class="prompt" id="s-prompt">
+        <div class="prompt-label">Переведите на мальтийский:</div>
+        <div class="prompt-text" id="s-ru"></div>
+        <div class="prompt-hint" id="s-hint"></div>
+        <div id="s-known"></div>
+      </div>
+
+      <div class="done" id="s-done" hidden>
+        <div class="done-title" id="s-done-title">На сегодня всё</div>
+        <div class="done-text" id="s-done-text"></div>
+        <div class="actions" id="s-done-actions">
+          <button id="s-bypass" class="btn">Учить сверх лимита</button>
+          <button id="s-review-all" class="btn ghost">Повторить доступное</button>
+        </div>
+      </div>
+
+      <div id="s-work">
+        <div id="s-build">
+          <div class="answer" id="s-answer"></div>
+          <div class="chips" id="s-chips"></div>
+        </div>
+
+        <div id="s-type" hidden>
+          <div class="kbd" id="s-kbd"></div>
+          <textarea id="s-input" rows="2" placeholder="Напишите предложение по-мальтийски…"></textarea>
+        </div>
+
+        <div id="s-cardbox" hidden>
+          <div class="card">
+            <div class="card-tag">Мальтийский</div>
+            <div class="card-main" id="s-mt"></div>
+          </div>
+        </div>
+        <div class="translit" id="s-translit" hidden></div>
+      </div>
+
+      <div class="actions" id="s-actions">
+        <button id="s-check" class="btn">Проверить</button>
+        <button id="s-reveal" class="btn ghost">Подсказка</button>
+        <button id="s-again" class="btn ghost">Ещё раз</button>
+        <div id="s-grade" class="grade" hidden>
+          <button id="s-no" class="btn bad">Не знаю</button>
+          <button id="s-yes" class="btn good">Знаю</button>
+        </div>
+        <span id="s-feedback" class="feedback"></span>
+      </div>
+
+      <div class="speak-row" id="s-speak-row">
+        <button id="s-speak" class="btn ghost small">Произнести</button>
+      </div>
+    </section>
+
+    <section id="view-pairs" class="view" hidden>
+      <div class="bar">
+        <button id="pr-shuffle" class="btn ghost small">Перемешать</button>
+        <label>Новых в день
+          <select id="pr-limit">
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="15">15</option>
+            <option value="20">20</option>
+            <option value="0">без лимита</option>
+          </select>
+        </label>
+      </div>
+      <div class="counter" id="pr-counter"></div>
+
+      <div class="card" id="pr-card">
+        <div class="card-tag">Определи род, форму глагола и перевод</div>
+        <div class="pair-prompt">
+          <span class="pair-part" id="pr-noun"></span>
+          <span class="pair-plus">+</span>
+          <span class="pair-part" id="pr-verb"></span>
+        </div>
+      </div>
+
+      <div id="pr-quiz">
+        <div class="quiz-row">
+          <div class="quiz-label">1. Род существительного</div>
+          <div class="quiz-options" id="pr-gender"></div>
+        </div>
+        <div class="quiz-row">
+          <div class="quiz-label">2. Форма глагола (настоящее время)</div>
+          <div class="quiz-options" id="pr-form"></div>
+        </div>
+        <div class="quiz-row">
+          <div class="quiz-label">3. Перевод сочетания</div>
+          <div class="quiz-options" id="pr-ru"></div>
+        </div>
+      </div>
+
+      <div class="card-extra" id="pr-answer" hidden></div>
+      <div class="translit" id="pr-translit" hidden></div>
+
+      <div class="actions" id="pr-actions">
+        <button id="pr-check" class="btn">Проверить</button>
+        <button id="pr-reveal" class="btn ghost">Показать ответ</button>
+        <button id="pr-next" class="btn ghost" hidden>Дальше</button>
+        <span id="pr-feedback" class="feedback"></span>
+      </div>
+
+      <div class="speak-row" id="pr-speak-row">
+        <button id="pr-speak" class="btn ghost small">Произнести</button>
+      </div>
+
+      <div class="done" id="pr-done" hidden>
+        <div class="done-title">На сегодня всё</div>
+        <div class="done-text" id="pr-done-text"></div>
+        <div class="actions" id="pr-done-actions">
+          <button id="pr-bypass" class="btn">Учить сверх лимита</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-alphabet" class="view" hidden>
+      <p class="hint">Мальтийский алфавит: 30 букв, латиница с диакритикой. Нажмите букву, чтобы услышать произношение.</p>
+      <div class="alpha-grid" id="alpha-grid"></div>
+      <div class="hint">Полезные символы — нажмите, чтобы скопировать:</div>
+      <div class="kbd" id="copy-kbd"></div>
+
+      <h3>Как читать транскрипцию</h3>
+      <ul class="legend">
+        <li><b>кэ́лма</b> — знак ́ показывает ударный гласный.</li>
+        <li><b>ў</b> — неслоговое «у»: <b>ўие́хэт</b> (wieħed) звучит как «уиехэт» одним выдохом.</li>
+        <li><b>ъ</b> — гортанная смычка (буква <b>q</b>): <b>суъ</b> (suq), <b>аъ</b> в середине слова.</li>
+        <li><b>х</b> — глубокий «х» (буква <b>ħ</b>), <b>ш</b> — буква <b>x</b>, <b>ц</b> — буква <b>z</b>, <b>з</b> — буква <b>ż</b>.</li>
+        <li><b>għ</b> и <b>h</b> не читаются; <b>għ</b> обычно удлиняет соседнюю гласную.</li>
+        <li>Долгота гласных в транскрипции не показана, а звонкие на конце оглушаются: <b>ħobż</b> → <b>хобс</b>.</li>
+      </ul>
+    </section>
+
+    <section id="view-progress" class="view" hidden>
+      <div class="stats-grid" id="p-stats"></div>
+      <h3>Слова по коробкам</h3>
+      <div class="boxes" id="p-boxes"></div>
+      <h3>Ответы за последние 7 дней</h3>
+      <div class="days" id="p-days"></div>
+      <div class="actions">
+        <button id="p-reset" class="btn bad">Сбросить прогресс</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="data/words.js"></script>
+  <script src="data/sentences.js"></script>
+  <script src="data/ipa.js"></script>
+  <script src="data/links.js"></script>
+  <script src="data/pairs.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
