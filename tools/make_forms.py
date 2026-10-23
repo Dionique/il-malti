@@ -222,10 +222,34 @@ def wrong_articles(stem):
     return [b + stem for b in bad[:2]]
 
 
+def validate_articles(words):
+    """Правило артикля должно воспроизводить каждый артикль словаря."""
+    bad = []
+    for w in words:
+        if w.get("pos") != "noun" or not w.get("art"):
+            continue
+        expected = article_for(w["mt"]) + w["mt"]
+        if expected != w["art"]:
+            bad.append((w["mt"], w["art"], expected))
+    return bad
+
+
 def main():
     words = load_words()
     by_mt = {w["mt"]: w for w in words}
     sample = "--sample" in sys.argv
+
+    checked = [w for w in words if w.get("pos") == "noun" and w.get("art")]
+    bad_articles = validate_articles(words)
+    print("проверка правила артикля: %d существительных" % len(checked))
+    if bad_articles:
+        print("  расхождений: %d" % len(bad_articles))
+        for mt, have, got in bad_articles[:20]:
+            print("    %-14s в словаре %-16s правило даёт %s" % (mt, have, got))
+    else:
+        print("  расхождений нет — правило воспроизводит все артикли словаря")
+    if "--check" in sys.argv:
+        return 1 if bad_articles else 0
 
     # ---------- согласование ----------
     agreement = []

@@ -40,6 +40,7 @@
     place: "Город и места",
     travel: "Транспорт",
     verb: "Глаголы",
+    prep: "Предлоги",
     greet: "Приветствия",
     present: "Настоящее время",
     have: "Иметь (għandi)",
@@ -55,6 +56,10 @@
     verb: "гл.",
     adj: "прил."
   };
+
+  // Единственный источник правды для счётчиков ответов.
+  // Раньше список дублировался в трёх местах и разъезжался.
+  var STAT_KINDS = ["word", "sent", "pair", "form"];
 
   var INTERVALS = [0, 1, 2, 4, 8, 16];
   var DEFAULT_NEW_LIMIT = 10;
@@ -75,11 +80,9 @@
   /* ---------- storage ---------- */
 
   function freshState() {
-    return {
-      items: {},
-      stats: { word: { ok: 0, no: 0 }, sent: { ok: 0, no: 0 }, form: { ok: 0, no: 0 } },
-      days: {}
-    };
+    var stats = {};
+    STAT_KINDS.forEach(function (k) { stats[k] = { ok: 0, no: 0 }; });
+    return { items: {}, stats: stats, days: {} };
   }
 
   var state = freshState();
@@ -93,7 +96,7 @@
         state.items = parsed.items || {};
         state.days = parsed.days || {};
         state.stats = parsed.stats || {};
-        ["word", "sent", "pair", "form"].forEach(function (k) {
+        STAT_KINDS.forEach(function (k) {
           state.stats[k] = state.stats[k] || { ok: 0, no: 0 };
         });
       }
@@ -922,30 +925,35 @@
     pair: {
       label: "Существительное + глагол",
       prefix: "p:",
+      kind: "pair",
       source: function () { return PAIRS; },
       key: function (it) { return it.phrase; }
     },
     agree: {
       label: "Согласование: сущ + прил + глаг",
       prefix: "fa:",
+      kind: "form",
       source: function () { return FORMS.agreement || []; },
       key: function (it) { return it.phrase; }
     },
     plural: {
       label: "Множественное число",
       prefix: "fp:",
+      kind: "form",
       source: function () { return FORMS.plural || []; },
       key: function (it) { return it.noun; }
     },
     prep: {
       label: "Предлоги и слитные формы",
       prefix: "fr:",
+      kind: "form",
       source: function () { return FORMS.prep || []; },
       key: function (it) { return it.prep + "|" + it.subject; }
     }
   };
 
   var fmList = [], fmPool = [], fmIndex = 0, fmPicked = {}, fmState = "ask", fmBypass = false;
+  var fmReviewAll = false;
 
   function fmMode() { return $("fm-mode").value; }
 
@@ -995,6 +1003,7 @@
     $("fm-reveal").addEventListener("click", fmReveal);
     $("fm-next").addEventListener("click", fmNext);
     $("fm-bypass").addEventListener("click", function () { fmBypass = true; fmBuild(); });
+    $("fm-review-all").addEventListener("click", function () { fmReviewAll = true; fmBuild(); });
     $("fm-quiz").addEventListener("click", fmPick);
     fmBuild();
   }
@@ -1003,6 +1012,12 @@
     var mode = fmMode();
     var all = fmCurrentList();
     fmIndex = 0;
+
+    if (fmReviewAll) {
+      fmPool = shuffle(all.slice());
+      fmShow();
+      return;
+    }
 
     var reviews = all.filter(function (x) {
       var r = state.items[x.uid];
@@ -1196,7 +1211,7 @@
     var it = wrapper.data;
     fmState = "done";
     var ok = !revealed && wrong.length === 0;
-    grade(wrapper.uid, "form", ok);
+    grade(wrapper.uid, FM_MODES[mode].kind, ok);
 
     $("fm-check").hidden = true;
     $("fm-reveal").hidden = true;
@@ -1248,6 +1263,7 @@
   function fmNext() {
     fmIndex++;
     if (fmIndex < fmPool.length) { fmShow(); return; }
+    if (fmReviewAll) { fmPool = []; fmIndex = 0; fmShow(); fmReviewAll = false; return; }
     fmBypass = false;
     fmBuild();
   }
@@ -1310,49 +1326,107 @@
 
   /* ---------- progress ---------- */
 
+  var KIND_LABEL = { word: "Слова", sent: "Предложения", pair: "Существительное + глагол",
+                     form: "Согласование, множественное, предлоги" };
+
+  // Сводка по любой коллекции: сколько начато, освоено и ждёт повторения.
+  function srsSummary(prefix, uids) {
+    var started = 0, learned = 0, due = 0, untouched = 0;
+    uids.forEach(function (uid) {
+      var r = state.items[uid];
+      if (!r) { untouched++; return; }
+      started++;
+      if (r.b >= 4) learned++;
+      if (r.d <= dayNumber()) due++;
+    });
+    return { total: uids.length, started: started, learned: learned, due: due,
+             untouched: untouched, next: nextDueDate(prefix) };
+  }
+
+  function allSummaries() {
+    var out = [];
+    out.push({ name: "Слова", s: srsSummary("w:", WORDS.map(wid)) });
+    out.push({ name: "Предложения", s: srsSummary("s:", SENTENCES.map(sid)) });
+    Object.keys(FM_MODES).forEach(function (k) {
+      var m = FM_MODES[k];
+      out.push({ name: m.label, s: srsSummary(m.prefix, m.list.map(function (x) { return x.uid; })) });
+    });
+    return out;
+  }
+
   function renderProgress() {
-    var boxLabels = ["Не начатые", "Коробка 1", "Коробка 2", "Коробка 3", "Коробка 4", "Коробка 5+"];
-    var boxes = [0, 0, 0, 0, 0, 0];
-    var dueReviews = 0;
-    var untouched = 0;
+    var notStarted = 0, forgotten = 0, dueReviews = 0;
+    var boxes = [0, 0, 0, 0, 0, 0];          // коробки 0..5 среди начатых слов
     WORDS.forEach(function (w) {
       var r = state.items[wid(w)];
-      boxes[r ? r.b : 0]++;
-      if (!r) untouched++;
-      else if (r.d <= dayNumber()) dueReviews++;
+      if (!r) { notStarted++; return; }
+      boxes[r.b]++;
+      if (r.b === 0) forgotten++;
+      if (r.d <= dayNumber()) dueReviews++;
     });
     var learned = boxes[4] + boxes[5];
-    var started = WORDS.length - untouched;
-    var w = state.stats.word, s = state.stats.sent;
-    var totalOk = w.ok + s.ok;
-    var totalNo = w.no + s.no;
-    var acc = (totalOk + totalNo) ? Math.round((totalOk / (totalOk + totalNo)) * 100) : 0;
-    var limit = newLimit();
-    var today = introducedToday();
+    var started = WORDS.length - notStarted;
 
+    // Ответы и точность по ВСЕМ режимам, а не только по словам.
+    var ok = 0, no = 0;
+    STAT_KINDS.forEach(function (k) {
+      ok += state.stats[k].ok;
+      no += state.stats[k].no;
+    });
+    var acc = (ok + no) ? Math.round((ok / (ok + no)) * 100) : 0;
+
+    var limit = newLimit();
     var cards = [
-      ["Новых сегодня", today + (limit ? " из " + limit : " (без лимита)")],
-      ["К повторению сейчас", String(dueReviews)],
+      ["Новых слов сегодня", introducedToday() + (limit ? " из " + limit : " (без лимита)")],
+      ["Слов к повторению сейчас", String(dueReviews)],
       ["Слов начато", started + " из " + WORDS.length],
       ["Освоено (коробки 4–5)", String(learned)],
-      ["Всего ответов", String(totalOk + totalNo)],
-      ["Точность", acc + "%"],
-      ["Упражнений на формы", String(PAIRS.length + (FORMS.agreement || []).length +
-        (FORMS.plural || []).length + (FORMS.prep || []).length)],
-      ["Новых форм сегодня", fmIntroduced("agree") + fmIntroduced("plural") + fmIntroduced("prep") +
-        fmIntroduced("pair") + (fmLimit() ? " из " + (fmLimit() * 4) : "")]
+      ["Всего ответов", String(ok + no)],
+      ["Точность", acc + "%"]
     ];
     $("p-stats").innerHTML = cards.map(function (c) {
       return '<div class="stat"><div class="stat-value">' + escapeHtml(c[1]) +
         '</div><div class="stat-label">' + escapeHtml(c[0]) + "</div></div>";
     }).join("");
 
-    var maxBox = Math.max.apply(null, boxes.concat([1]));
-    $("p-boxes").innerHTML = boxLabels.map(function (label, i) {
-      var pct = Math.round((boxes[i] / maxBox) * 100);
-      return '<div class="box-row"><div class="box-label">' + escapeHtml(label) +
+    // Гистограмма: не начатые, «забытые» (коробка 0) и коробки 1–5.
+    var rows = [
+      ["Не начатые", notStarted],
+      ["Коробка 0 (проваленные)", forgotten],
+      ["Коробка 1", boxes[1]],
+      ["Коробка 2", boxes[2]],
+      ["Коробка 3", boxes[3]],
+      ["Коробка 4", boxes[4]],
+      ["Коробка 5+", boxes[5]]
+    ];
+    var maxRow = Math.max.apply(null, rows.map(function (r) { return r[1]; }).concat([1]));
+    $("p-boxes").innerHTML = rows.map(function (r) {
+      var pct = Math.round((r[1] / maxRow) * 100);
+      return '<div class="box-row"><div class="box-label">' + escapeHtml(r[0]) +
         '</div><div class="box-track"><div class="box-fill" style="width:' + pct + '%"></div></div>' +
-        '<div class="box-count">' + boxes[i] + "</div></div>";
+        '<div class="box-count">' + r[1] + "</div></div>";
+    }).join("");
+
+    // Прогресс по каждому набору упражнений: раньше был виден только по словам.
+    $("p-sets").innerHTML = allSummaries().map(function (row) {
+      var s = row.s;
+      return '<div class="set-row"><div class="set-name">' + escapeHtml(row.name) + "</div>" +
+        '<div class="set-num">начато: <b>' + s.started + "</b> из " + s.total + "</div>" +
+        '<div class="set-num">освоено: <b>' + s.learned + "</b></div>" +
+        '<div class="set-num">к повторению: <b>' + s.due + "</b></div>" +
+        '<div class="set-num set-next">далее: ' + escapeHtml(s.next) + "</div></div>";
+    }).join("");
+
+    // Сколько ответов дано по каждому режиму.
+    $("p-kinds").innerHTML = STAT_KINDS.map(function (k) {
+      var st = state.stats[k];
+      var total = st.ok + st.no;
+      var a = total ? Math.round((st.ok / total) * 100) : 0;
+      return '<div class="set-row"><div class="set-name">' + escapeHtml(KIND_LABEL[k]) + "</div>" +
+        '<div class="set-num">ответов: <b>' + total + "</b></div>" +
+        '<div class="set-num">верно: <b>' + st.ok + "</b></div>" +
+        '<div class="set-num">ошибок: <b>' + st.no + "</b></div>" +
+        '<div class="set-num set-next">точность: ' + a + "%</div></div>";
     }).join("");
 
     var days = [];

@@ -322,5 +322,82 @@ window.WORDS = [
   { mt: "mexa",     ru: "идти пешком, ходить",        topic: "verb", pos: "verb", forms: "jimxi", pres: "jimxi, timxi, jimxu" },
   { mt: "sajjar",   ru: "готовить (еду)",             topic: "verb", pos: "verb", forms: "isajjar", pres: "isajjar, tisajjar, isajjru" },
   { mt: "ħasel",    ru: "мыть",                       topic: "verb", pos: "verb", forms: "jaħsel", pres: "jaħsel, taħsel, jaħslu" },
-  { mt: "noqgħod",  ru: "жить, проживать (я живу)",   topic: "verb", pos: "verb", forms: "joqgħod, noqgħod", pres: "joqgħod, toqgħod, joqogħdu" }
+  { mt: "noqgħod",  ru: "жить, проживать (я живу)",   topic: "verb", pos: "verb", forms: "joqgħod, noqgħod", pres: "joqgħod, toqgħod, joqogħdu" },
+
+  // ---- ходовые слова: предлоги, указательные, притяжательные, месяцы, ----
+  // ---- порядковые, десятки, сравнительные, наречия                     ----
+
+  { mt: "ta'",   ru: "предлог принадлежности: «чей»", topic: "prep" },
+  { mt: "fi",    ru: "в (где)",        topic: "prep" },
+  { mt: "ma'",   ru: "с (кем, чем)",   topic: "prep" },
+  { mt: "minn",  ru: "из, от",         topic: "prep" },
+  { mt: "lil",   ru: "кому, к",        topic: "prep" },
+  { mt: "għal",  ru: "для, за",        topic: "prep" },
+  { mt: "bħal",  ru: "как, подобно",   topic: "prep" },
+  { mt: "sa",    ru: "до, пока",       topic: "prep" },
+  { mt: "fuq",   ru: "на, над",        topic: "prep" },
+  { mt: "taħt",  ru: "под",            topic: "prep" },
+  { mt: "bejn",  ru: "между",          topic: "prep" },
+  { mt: "wara",  ru: "после, за",      topic: "prep" },
+  { mt: "qabel", ru: "до, перед",      topic: "prep" },
+  { mt: "ħdejn", ru: "рядом с",        topic: "prep" },
+  { mt: "ġo",    ru: "внутри",         topic: "prep" },
+
+  { mt: "dak",   ru: "тот, то",        topic: "pron" },
+  { mt: "dik",   ru: "та",             topic: "pron" },
+  { mt: "dawk",  ru: "те",             topic: "pron" },
+
+  { mt: "tiegħek", ru: "твой",  topic: "pron" },
+  { mt: "tiegħu",  ru: "его",   topic: "pron" },
+  { mt: "tagħha",  ru: "её",    topic: "pron" },
+  { mt: "tagħna",  ru: "наш",   topic: "pron" },
+  { mt: "tagħkom", ru: "ваш",   topic: "pron" },
+  { mt: "tagħhom", ru: "их",    topic: "pron" },
+
+  { mt: "Jannar",    ru: "январь",    topic: "time" },
+  { mt: "Frar",      ru: "февраль",   topic: "time" },
+  { mt: "Marzu",     ru: "март",      topic: "time" },
+  { mt: "April",     ru: "апрель",    topic: "time" },
+  { mt: "Mejju",     ru: "май",       topic: "time" },
+  { mt: "Ġunju",     ru: "июнь",      topic: "time" },
+  { mt: "Lulju",     ru: "июль",      topic: "time" },
+  { mt: "Awwissu",   ru: "август",    topic: "time" },
+  { mt: "Settembru", ru: "сентябрь",  topic: "time" },
+  { mt: "Ottubru",   ru: "октябрь",   topic: "time" },
+  { mt: "Novembru",  ru: "ноябрь",    topic: "time" },
+  { mt: "Diċembru",  ru: "декабрь",   topic: "time" },
+
+  { mt: "l-ewwel",  ru: "первый",  topic: "numbers" },
+  { mt: "it-tieni", ru: "второй",  topic: "numbers" },
+  { mt: "it-tielet", ru: "третий", topic: "numbers" },
+
+  { mt: "tletin",  ru: "тридцать",   topic: "numbers" },
+  { mt: "erbgħin", ru: "сорок",      topic: "numbers" },
+  { mt: "ħamsin",  ru: "пятьдесят",  topic: "numbers" },
+  { mt: "sittin",  ru: "шестьдесят", topic: "numbers" },
+  { mt: "sebgħin", ru: "семьдесят",  topic: "numbers" },
+  { mt: "tmenin",  ru: "восемьдесят",topic: "numbers" },
+  { mt: "disgħin", ru: "девяносто",  topic: "numbers" },
+  { mt: "mija",    ru: "сто",        topic: "numbers" },
+
+  { mt: "kelma",       ru: "слово",   topic: "things", pos: "noun", g: "f", art: "il-kelma",       pl: "kliem" },
+  { mt: "xogħol",      ru: "работа",  topic: "base",   pos: "noun", g: "m", art: "ix-xogħol",      pl: "xogħlijiet" },
+  { mt: "post",        ru: "место",   topic: "place",  pos: "noun", g: "m", art: "il-post",        pl: "postijiet" },
+  { mt: "ħajja",       ru: "жизнь",   topic: "base",   pos: "noun", g: "f", art: "il-ħajja",       pl: "ħajjiet" },
+  { mt: "żmien",       ru: "время",   topic: "time",   pos: "noun", g: "m", art: "iż-żmien",       pl: "żminijiet" },
+  { mt: "pajjiż",      ru: "страна",  topic: "place",  pos: "noun", g: "m", art: "il-pajjiż",      pl: "pajjiżi" },
+  { mt: "mistoqsija",  ru: "вопрос",  topic: "base",   pos: "noun", g: "f", art: "il-mistoqsija", pl: "mistoqsijiet" },
+
+  { mt: "aħjar", ru: "лучше, лучший", topic: "adj", pos: "adj" },
+  { mt: "agħar", ru: "хуже, худший",  topic: "adj", pos: "adj" },
+
+  { mt: "iktar", ru: "больше",        topic: "base" },
+  { mt: "inqas", ru: "меньше",        topic: "base" },
+
+  { mt: "issa",   ru: "сейчас",        topic: "base" },
+  { mt: "diġà",   ru: "уже",           topic: "base" },
+  { mt: "biss",   ru: "только",        topic: "base" },
+  { mt: "anki",   ru: "даже",          topic: "base" },
+  { mt: "għadu",  ru: "ещё, всё ещё",  topic: "base" },
+  { mt: "żejjed", ru: "слишком, лишний", topic: "base" },
 ];

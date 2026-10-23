@@ -72,7 +72,7 @@ def main():
         check("title", page.title(), predicate=lambda t: "Malti" in t)
 
         # --- words ---
-        check("words topic options", page.locator("#w-topic option").count(), 17)
+        check("words topic options", page.locator("#w-topic option").count(), 18)
         check("default new-words-per-day limit", page.input_value("#w-limit"), "10")
         check("first queue is capped by the daily limit", page.inner_text("#w-counter"),
               predicate=lambda s: "В очереди: 10" in s and "новых сегодня: 0/10" in s)
@@ -157,8 +157,16 @@ def main():
 
         # --- sentences: vocabulary gate ---
         page.click('.tab[data-tab="sentences"]')
+        # пороги считаем из данных, чтобы тест не устаревал при их правке
+        totals = page.evaluate("""() => ({
+            total: window.SENTENCES.length,
+            open: Object.values(window.SENTENCE_LINKS)
+                    .filter(v => (v.words || []).length <= 1).length
+          })""")
+        check("фразы действительно закрыты не все", totals["open"],
+              predicate=lambda n: 0 < n < totals["total"])
         check("few phrases open on a fresh start", page.inner_text("#s-counter"),
-              predicate=lambda s: "открыто фраз: 8 из 269" in s)
+              predicate=lambda s: "открыто фраз: %d из %d" % (totals["open"], totals["total"]) in s)
         check("default new-phrases-per-day limit", page.input_value("#s-limit"), "5")
         check("familiarity is reported", page.inner_text("#s-counter"),
               predicate=lambda s: "знакомые слова:" in s)
@@ -214,11 +222,11 @@ def main():
         page.select_option("#s-limit", "0")
         page.select_option("#s-mode", "card")
         check("all open phrases are queued", page.inner_text("#s-counter"),
-              predicate=lambda s: "Фраза 1 из 8" in s)
+              predicate=lambda s: "Фраза 1 из %d" % totals["open"] in s)
         failed = page.inner_text("#s-mt")
         page.click("#s-reveal")
         page.click("#s-no")
-        for _ in range(7):
+        for _ in range(totals["open"] - 1):
             page.click("#s-reveal")
             page.click("#s-yes")
         check("failed phrase returned", page.inner_text("#s-counter"),
@@ -228,19 +236,20 @@ def main():
         page.click("#s-yes")
         check("phrases done for today", page.locator("#s-done").is_visible(), True)
         check("done text reports new phrases", page.inner_text("#s-done-text"),
-              predicate=lambda s: "Новых фраз сегодня: 8" in s)
+              predicate=lambda s: "Новых фраз сегодня: %d" % totals["open"] in s)
 
         # --- learning the vocabulary opens more phrases ---
         page.evaluate("() => localStorage.clear()")
         page.reload()
         page.click('.tab[data-tab="sentences"]')
-        check("8 phrases open with no vocabulary", page.inner_text("#s-counter"),
-              predicate=lambda s: "открыто фраз: 8 из 269" in s)
+        check("open-phrase count matches the data", page.inner_text("#s-counter"),
+              predicate=lambda s: "открыто фраз: %d из %d" % (totals["open"], totals["total"]) in s)
         linked = page.evaluate(
             "() => [...new Set(Object.values(window.SENTENCE_LINKS).flatMap(v => v.words))]"
         )
-        check("phrases use a subset of the vocabulary", len(linked),
-              predicate=lambda n: 100 < n < 304)
+        word_total = page.evaluate("() => window.WORDS.length")
+        check("фразы используют лишь часть словаря", len(linked),
+              predicate=lambda n: 0 < n < word_total)
         state = {
             "items": {("w:" + mt): {"b": 1, "d": 0, "f": 0} for mt in linked},
             "stats": {"word": {"ok": 0, "no": 0}, "sent": {"ok": 0, "no": 0}},
@@ -251,7 +260,7 @@ def main():
         page.click('.tab[data-tab="sentences"]')
         check("all phrases open once their vocabulary is known",
               page.inner_text("#s-counter"),
-              predicate=lambda s: "открыто фраз: 269 из 269" in s)
+              predicate=lambda s: "открыто фраз: %d из %d" % (totals["total"], totals["total"]) in s)
 
         # --- формы: четыре режима на одном движке ---
         page.evaluate("() => localStorage.clear()")
@@ -284,12 +293,21 @@ def main():
                       [...document.querySelectorAll('#fm-quiz .quiz-options[data-key="' + r.key + '"] .opt')]
                         .some(o => o.dataset.value === r.correct));
                   }"""), True)
-            check("%s: a translation question is present" % mode,
-                  page.evaluate("""() => {
-                    const cyr = /[а-яё]/i;
-                    return [...document.querySelectorAll('#fm-quiz .quiz-options')].some(b =>
-                      [...b.querySelectorAll('.opt')].some(o => cyr.test(o.textContent)));
-                  }"""), True)
+            has_ru_q = page.evaluate("""() => {
+                const cyr = /[а-яё]/i;
+                return [...document.querySelectorAll('#fm-quiz .opt')].some(o => cyr.test(o.textContent));
+              }""")
+            if mode == "plural":
+                # у неисчисляемых (birra, patata, ewro) русского мн. ч. нет — строки тоже нет
+                needs = page.evaluate("""() => {
+                    const noun = document.querySelector('#fm-prompt .pair-part').textContent;
+                    const it = window.FORMS.plural.find(x => x.noun === noun);
+                    return it ? !!it.ruPl : null;
+                  }""")
+                check("plural: перевод показан тогда и только тогда, когда он есть",
+                      has_ru_q == bool(needs), True)
+            else:
+                check("%s: a translation question is present" % mode, has_ru_q, True)
             page.click("#fm-check")
             check("%s: incomplete answer rejected" % mode, page.inner_text("#fm-feedback"),
                   predicate=lambda s: "все пункты" in s)
@@ -361,8 +379,10 @@ def main():
 
         # --- progress ---
         page.click('.tab[data-tab="progress"]')
-        check("stat cards", page.locator("#p-stats .stat").count(), 8)
-        check("box rows", page.locator("#p-boxes .box-row").count(), 6)
+        check("stat cards", page.locator("#p-stats .stat").count(), 6)
+        check("box rows", page.locator("#p-boxes .box-row").count(), 7)
+        check("progress rows per exercise set", page.locator("#p-sets .set-row").count(), 6)
+        check("answer rows per mode", page.locator("#p-kinds .set-row").count(), 4)
         check("day rows", page.locator("#p-days .box-row").count(), 7)
 
         # --- reset ---
@@ -372,6 +392,93 @@ def main():
         cleared = page.evaluate("() => localStorage.getItem('il-malti-v1')")
         check("reset clears progress", cleared, predicate=lambda s: s and '"items":{}' in s)
         check("stats reset", page.inner_text("#p-stats"), predicate=lambda s: "0%" in s)
+
+        # --- статистика: ответы учитываются во всех режимах ---
+        page.evaluate("() => localStorage.clear()")
+        page.reload()
+        total_words = page.evaluate("() => window.WORDS.length")
+
+        # (1) ответ в «Формах» должен попасть в общий счёт и в точность
+        page.click('.tab[data-tab="forms"]')
+        page.select_option("#fm-mode", "agree")
+        rows = page.evaluate("() => JSON.parse(document.getElementById('fm-correct').value)")
+        for r in rows:
+            page.evaluate("""r => {
+              const box = document.querySelector("#fm-quiz .quiz-options[data-key='" + r.key + "']");
+              [...box.querySelectorAll('.opt')].find(o => o.dataset.value === r.correct).click();
+            }""", r)
+        page.click("#fm-check")
+        page.wait_for_timeout(1200)
+        page.click('.tab[data-tab="progress"]')
+        stats = page.inner_text("#p-stats")
+        check("ответ из «Форм» попал в «Всего ответов»", stats,
+              predicate=lambda s: "1\nВсего ответов" in s)
+        check("точность считается по всем режимам", stats,
+              predicate=lambda s: "100%\nТочность" in s)
+        kinds = [x.replace("\n", " ") for x in page.evaluate(
+            "() => [...document.querySelectorAll('#p-kinds .set-row')].map(r => r.innerText)")]
+        check("ответ учтён в счётчике своего режима",
+              [k for k in kinds if k.startswith("Согласование") and "ответов: 1" in k],
+              predicate=lambda v: len(v) == 1)
+        check("нулевые счётчики остались нулевыми",
+              [k for k in kinds if "Слова" in k and "ответов: 0" in k],
+              predicate=lambda v: len(v) == 1)
+
+        # (2) проваленное слово — это «начатое», а не «не начатое»
+        page.evaluate("() => localStorage.clear()")
+        page.reload()
+        page.click('.tab[data-tab="words"]')
+        failed_word = page.inner_text("#w-front")
+        page.click("#w-show")
+        page.click("#w-no")
+        page.click('.tab[data-tab="progress"]')
+        boxes = page.evaluate("""() => Object.fromEntries([...document.querySelectorAll('#p-boxes .box-row')]
+          .map(r => [r.querySelector('.box-label').textContent, Number(r.querySelector('.box-count').textContent)]))""")
+        check("новых слов осталось на одно меньше", boxes.get("Не начатые"), total_words - 1)
+        check("проваленное слово попало в коробку 0",
+              boxes.get("Коробка 0 (проваленные)"), 1)
+        check("строк в гистограмме — семь", len(boxes), 7)
+        check("«Слов начато» учитывает провал", page.inner_text("#p-stats"),
+              predicate=lambda s: "1 из %d\nСлов начато" % total_words in s)
+
+        # (3) у каждого набора упражнений виден свой прогресс
+        sets = [x.replace("\n", " ") for x in page.evaluate(
+            "() => [...document.querySelectorAll('#p-sets .set-row')].map(r => r.innerText)")]
+        check("прогресс показан по всем наборам", len(sets), 6)
+        check("у наборов видны начатые и «далее»",
+              all("начато:" in x and "далее:" in x and "к повторению:" in x for x in sets), True)
+
+        # (4) слово со сроком возвращается и показывается РАНЬШЕ новых
+        import json as _json
+        due_state = {"items": {"w:" + failed_word: {"b": 2, "d": 0, "f": 0}},
+                     "stats": {}, "days": {}}
+        page.evaluate("s => localStorage.setItem('il-malti-v1', s)", _json.dumps(due_state))
+        page.reload()
+        page.click('.tab[data-tab="words"]')
+        check("слово со сроком стоит первым в очереди", page.inner_text("#w-front"), failed_word)
+        check("в очереди есть и новые слова", page.inner_text("#w-counter"),
+              predicate=lambda s: int(s.split("В очереди: ")[1].split(" ")[0]) > 1)
+
+        # (5) когда всё выучено и срок далёкий — очередь пуста, видно когда повторение
+        all_ids = page.evaluate("() => window.WORDS.map(w => 'w:' + w.mt)")
+        page.evaluate("s => localStorage.setItem('il-malti-v1', s)",
+                      _json.dumps({"items": {uid: {"b": 5, "d": 99999, "f": 0} for uid in all_ids},
+                                   "stats": {}, "days": {}}))
+        page.reload()
+        page.click('.tab[data-tab="words"]')
+        check("когда повторять нечего — блок «на сегодня всё»",
+              page.locator("#w-done").is_visible(), True)
+        check("видно, когда следующее повторение", page.inner_text("#w-done-text"),
+              predicate=lambda s: "Следующее повторение" in s and "через" in s)
+        page.click('.tab[data-tab="progress"]')
+        check("прогресс видит, что начаты все слова", page.inner_text("#p-stats"),
+              predicate=lambda s: "%d из %d\nСлов начато" % (total_words, total_words) in s)
+        check("далёкие слова не числятся к повторению", page.inner_text("#p-stats"),
+              predicate=lambda s: "0\nСлов к повторению сейчас" in s)
+
+        # вернуть чистое состояние для следующих блоков
+        page.evaluate("() => localStorage.clear()")
+        page.reload()
 
         # --- daily new-word limit and the "all done" state ---
         page.click('.tab[data-tab="words"]')

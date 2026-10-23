@@ -519,6 +519,31 @@ h3 { font-size: 15px; margin: 22px 0 10px; color: var(--muted); text-transform: 
 
 .box-count { text-align: right; font-variant-numeric: tabular-nums; }
 
+.set-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto auto;
+  gap: 10px 16px;
+  align-items: baseline;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.set-row:last-child { border-bottom: 0; }
+
+.set-name { font-weight: 600; }
+
+.set-num { color: var(--muted); white-space: nowrap; }
+
+.set-num b { color: var(--ink); }
+
+.set-next { color: var(--muted); font-size: 13px; }
+
+@media (max-width: 620px) {
+  .set-row { grid-template-columns: 1fr 1fr; }
+  .set-name { grid-column: 1 / -1; }
+}
+
 .toast {
   position: fixed;
   left: 50%;

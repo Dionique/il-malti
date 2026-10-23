@@ -35,7 +35,7 @@ ALIASES = {
     # verbs, 1st/2nd/3rd person present
     "nixrob": "xorob", "tixrob": "xorob",
     "niekol": "kiel", "tiekol": "kiel",
-    "nara": "ra", "tara": "ra", "narak": "ra",
+    "nara": "ra", "tara": "ra", "narak": "ra", "rajt": "ra", "rajna": "ra",
     "naħdem": "ħadem", "taħdem": "ħadem", "jaħdem": "ħadem",
     "nitkellem": "tkellem", "tkellmu": "tkellem",
     "nitgħallmu": "tgħallem", "titgħallem": "tgħallem",
