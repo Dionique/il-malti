@@ -1037,10 +1037,10 @@
     function vals(arr) {
       return arr.map(function (v) { return { value: v, label: v }; });
     }
-    function distractors(correct, source, n) {
+    function distractors(correct, source, n, field) {
       var out = [];
       shuffle(source.slice()).forEach(function (x) {
-        var v = x.ru || x.meaning;
+        var v = x[field || "ru"] || x.meaning;
         if (v && v !== correct && out.indexOf(v) === -1 && out.length < n) out.push(v);
       });
       return out;
@@ -1060,8 +1060,14 @@
       rows.push({ key: "ru", label: "4. Перевод фразы",
                   options: vals([it.ru].concat(distractors(it.ru, others, 2))), correct: it.ru });
     } else if (mode === "plural") {
+      var nouns = FM_MODES.plural.list.map(function (x) { return x.data; });
       rows.push({ key: "plural", label: "1. Множественное число", options: vals(it.pluralOptions), correct: it.plural });
       rows.push({ key: "definite", label: "2. Множественное число с артиклем", options: vals(it.definiteOptions), correct: it.definite });
+      if (it.ruPl) {
+        rows.push({ key: "ruPl", label: "3. Перевод (множественное число)",
+                    options: vals(shuffle([it.ruPl].concat(distractors(it.ruPl, nouns, 2, "ruPl")))),
+                    correct: it.ruPl });
+      }
     } else {
       var preps = FM_MODES.prep.list.map(function (x) { return x.data; });
       var meanings = [];
@@ -1069,6 +1075,9 @@
       var mopts = [it.meaning].concat(shuffle(meanings.filter(function (m) { return m !== it.meaning; })).slice(0, 2));
       rows.push({ key: "fused", label: "1. Слитная форма", options: vals(it.options), correct: it.fused });
       rows.push({ key: "meaning", label: "2. Значение предлога", options: vals(shuffle(mopts)), correct: it.meaning });
+      rows.push({ key: "nounRu", label: "3. Перевод существительного",
+                  options: vals(shuffle([it.nounRu].concat(distractors(it.nounRu, preps, 2, "nounRu")))),
+                  correct: it.nounRu });
     }
     return rows;
   }
@@ -1195,7 +1204,8 @@
 
     var labels = { gender: "род", adjForm: "форма прилагательного", verbForm: "форма глагола",
                    form: "форма глагола", ru: "перевод", plural: "мн. число",
-                   definite: "артикль", fused: "слитная форма", meaning: "значение" };
+                   definite: "артикль", ruPl: "перевод", fused: "слитная форма",
+                   meaning: "значение", nounRu: "перевод" };
     $("fm-feedback").textContent = ok ? "Верно!"
       : (revealed ? "Разбор" : "Неверно: " + wrong.map(function (r) { return labels[r.key] || r.key; }).join(", "));
     $("fm-feedback").className = "feedback " + (ok ? "good" : "bad");
@@ -1226,7 +1236,8 @@
     }
     if (mode === "plural") {
       return '<div class="pair-answer">' + escapeHtml(it.noun) + " → " + escapeHtml(it.definite) + "</div>" +
-        '<div class="pair-answer-ru">' + escapeHtml(it.nounRu) + " (" + GENDER_LABEL[it.gender] +
+        '<div class="pair-answer-ru">' + escapeHtml(it.nounRu) +
+        (it.ruPl ? " → " + escapeHtml(it.ruPl) : "") + " (" + GENDER_LABEL[it.gender] +
         ") · мн. ч. " + escapeHtml(it.plural) + "</div>";
     }
     return '<div class="pair-answer">' + escapeHtml(it.prep) + " + " + escapeHtml(it.subject) +

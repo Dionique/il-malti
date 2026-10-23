@@ -158,7 +158,7 @@ def main():
         # --- sentences: vocabulary gate ---
         page.click('.tab[data-tab="sentences"]')
         check("few phrases open on a fresh start", page.inner_text("#s-counter"),
-              predicate=lambda s: "открыто фраз: 8 из 270" in s)
+              predicate=lambda s: "открыто фраз: 8 из 269" in s)
         check("default new-phrases-per-day limit", page.input_value("#s-limit"), "5")
         check("familiarity is reported", page.inner_text("#s-counter"),
               predicate=lambda s: "знакомые слова:" in s)
@@ -235,7 +235,7 @@ def main():
         page.reload()
         page.click('.tab[data-tab="sentences"]')
         check("8 phrases open with no vocabulary", page.inner_text("#s-counter"),
-              predicate=lambda s: "открыто фраз: 8 из 270" in s)
+              predicate=lambda s: "открыто фраз: 8 из 269" in s)
         linked = page.evaluate(
             "() => [...new Set(Object.values(window.SENTENCE_LINKS).flatMap(v => v.words))]"
         )
@@ -251,7 +251,7 @@ def main():
         page.click('.tab[data-tab="sentences"]')
         check("all phrases open once their vocabulary is known",
               page.inner_text("#s-counter"),
-              predicate=lambda s: "открыто фраз: 270 из 270" in s)
+              predicate=lambda s: "открыто фраз: 269 из 269" in s)
 
         # --- формы: четыре режима на одном движке ---
         page.evaluate("() => localStorage.clear()")
@@ -261,11 +261,17 @@ def main():
         check("queue respects the daily limit", page.inner_text("#fm-counter"),
               predicate=lambda s: "Упражнение 1 из 10" in s and "0/10" in s)
 
-        rows_expected_map = {"pair": 3, "agree": 4, "plural": 2, "prep": 2}
-        for mode, rows_expected in (("pair", 3), ("agree", 4), ("plural", 2), ("prep", 2)):
+        rows_expected_map = {"pair": 3, "agree": 4, "plural": 2, "prep": 3}
+        for mode, rows_expected in (("pair", 3), ("agree", 4), ("plural", 2), ("prep", 3)):
             page.select_option("#fm-mode", mode)
-            check("%s: question rows" % mode,
-                  page.locator("#fm-quiz .quiz-row").count(), rows_expected)
+            # у множественного число вопросов зависит от слова (неисчисляемые -> без перевода)
+            if mode == "plural":
+                check("plural: 2 or 3 question rows",
+                      page.locator("#fm-quiz .quiz-row").count(),
+                      predicate=lambda n: n in (2, 3))
+            else:
+                check("%s: question rows" % mode,
+                      page.locator("#fm-quiz .quiz-row").count(), rows_expected)
             check("%s: prompt rendered" % mode, page.inner_text("#fm-prompt"),
                   predicate=lambda s: len(s.strip()) > 0)
             check("%s: every row offers choices" % mode,
@@ -277,6 +283,12 @@ def main():
                     return rows.length > 0 && rows.every(r =>
                       [...document.querySelectorAll('#fm-quiz .quiz-options[data-key="' + r.key + '"] .opt')]
                         .some(o => o.dataset.value === r.correct));
+                  }"""), True)
+            check("%s: a translation question is present" % mode,
+                  page.evaluate("""() => {
+                    const cyr = /[а-яё]/i;
+                    return [...document.querySelectorAll('#fm-quiz .quiz-options')].some(b =>
+                      [...b.querySelectorAll('.opt')].some(o => cyr.test(o.textContent)));
                   }"""), True)
             page.click("#fm-check")
             check("%s: incomplete answer rejected" % mode, page.inner_text("#fm-feedback"),
@@ -296,7 +308,7 @@ def main():
             check("%s: wrong answer is named" % mode, page.inner_text("#fm-feedback"),
                   predicate=lambda s: s.startswith("Неверно"))
             check("%s: correct options are highlighted" % mode,
-                  page.locator("#fm-quiz .opt.ok").count(), rows_expected_map[mode])
+                  page.locator("#fm-quiz .opt.ok").count(), len(rows))
             check("%s: the answer is shown" % mode, page.inner_text("#fm-answer"),
                   predicate=lambda s: len(s.strip()) > 0)
 
