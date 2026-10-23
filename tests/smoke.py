@@ -231,14 +231,42 @@ def main():
         check("a correct choice advances by itself",
               page.locator("#s-choice-list .ok").count(), 0)
 
-        # card mode reveals the new words together with the answer
+        # карточка-переворот: ответ скрыт, пока не нажмёшь
         page.select_option("#s-mode", "card")
-        check("card shows maltese", page.inner_text("#s-mt"), predicate=lambda s: len(s.strip()) > 0)
-        page.click("#s-reveal")
-        check("card grade visible", page.locator("#s-grade").is_hidden(), False)
-        check("new words revealed with the answer", page.inner_text("#s-known"),
+        secret = page.evaluate("""() => {
+              const ru = document.getElementById('s-ru').textContent;
+              const s = window.SENTENCES.find(x => x.ru === ru);
+              return s ? s.mt : null;
+            }""")
+        check("в карточке ответ скрыт до переворота",
+              page.inner_text("#s-mt") == secret, False)
+        check("кнопки оценки скрыты до переворота",
+              page.locator("#s-grade").is_hidden(), True)
+        page.click("#s-flip")
+        check("клик по карточке показывает ответ", page.inner_text("#s-mt"), secret)
+        check("транскрипция появляется вместе с ответом", page.inner_text("#s-translit"),
+              predicate=lambda s: "[" in s)
+        check("кнопки оценки появились", page.locator("#s-grade").is_hidden(), False)
+        check("новые слова раскрыты вместе с ответом", page.inner_text("#s-known"),
               predicate=lambda s: "Новые слова" in s)
+        before = page.inner_text("#s-counter").split("·")[0]
         page.click("#s-yes")
+        check("после оценки кнопки убраны", page.locator("#s-grade").is_hidden(), True)
+        page.wait_for_timeout(1300)
+        after = page.inner_text("#s-counter").split("·")[0]
+        check("«Знаю» уводит к следующей фразе", after != before, True)
+        check("на новой карточке ответ снова скрыт",
+              page.inner_text("#s-mt") == secret, False)
+        check("новая карточка снова без кнопок оценки",
+              page.locator("#s-grade").is_hidden(), True)
+
+        page.click("#s-flip")
+        page.click("#s-no")
+        page.wait_for_timeout(1500)
+        after2 = page.inner_text("#s-counter").split("·")[0]
+        check("«Не знаю» в карточке тоже уводит дальше", after2 != after, True)
+        check("после «Не знаю» кнопки тоже убраны",
+              page.locator("#s-grade").is_hidden(), True)
 
         # --- a topic whose phrases are all locked ---
         page.evaluate("() => localStorage.clear()")
@@ -409,20 +437,35 @@ def main():
         page.click('.tab[data-tab="sentences"]')
         page.select_option("#s-mode", "build")
         page.select_option("#s-limit", "0")
-        words_in_phrase = None
-        for _ in range(40):
-            words_in_phrase = page.evaluate("""() => {
+        # ищем фразу из >=3 слов без повторов и сразу считаем индексы чипов
+        plan = None
+        for _ in range(60):
+            plan = page.evaluate("""() => {
               const ru = document.getElementById('s-ru').textContent;
               const s = window.SENTENCES.find(x => x.ru === ru);
-              return s ? s.mt.split(' ') : null;
+              if (!s) return null;
+              const strip = t => t.replace(/^[«"'(]+/, '').replace(/[.,!?;:]+$/, '');
+              const toks = s.mt.split(' ').map(strip);
+              if (toks.length < 3 || new Set(toks).size !== toks.length) return null;
+              const chips = [...document.querySelectorAll('#s-chips .chip')].map(c => c.textContent);
+              const used = chips.map(() => false);
+              const idx = toks.map(t => {
+                const i = chips.findIndex((c, j) => !used[j] && c === t);
+                if (i >= 0) used[i] = true;
+                return i;
+              });
+              if (idx.some(i => i < 0)) return null;
+              return { toks: toks, idx: idx };
             }""")
-            if words_in_phrase and len(words_in_phrase) >= 3:
+            if plan:
                 break
             page.click("#s-next")
-        check("нашли фразу из трёх и более слов", len(words_in_phrase),
-              predicate=lambda n: n >= 3)
-        # кликаем слова в обратном порядке — порядок заведомо неверный
-        for i in range(len(words_in_phrase) - 1, -1, -1):
+        check("нашли фразу из трёх и более разных слов",
+              plan is not None, True)
+        # строим верный порядок, но меняем местами первые два слова — ошибка гарантирована
+        order = plan["idx"][:]
+        order[0], order[1] = order[1], order[0]
+        for i in order:
             page.locator("#s-chips .chip").nth(i).click()
         page.click("#s-check")
         check("a wrong sentence is reported", page.inner_text("#s-feedback"),

@@ -423,6 +423,14 @@ textarea { width: 100%; resize: vertical; min-height: 64px; }
   font-weight: 600;
 }
 
+.flipcard { cursor: pointer; }
+
+.card-main.placeholder {
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 500;
+}
+
 .choice-list { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 12px; }
 
 .opt-sentence {

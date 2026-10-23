@@ -546,6 +546,9 @@
     });
     $("s-mode").addEventListener("change", function (e) { sMode = e.target.value; showSentence(); });
     $("s-choice-list").addEventListener("click", onChoiceClick);
+    $("s-flip").addEventListener("click", function () {
+      if (sMode === "card" && !sRevealed && !sDone) revealSentence();
+    });
     $("s-next").addEventListener("click", nextSentence);
     $("s-check").addEventListener("click", checkSentence);
     $("s-reveal").addEventListener("click", revealSentence);
@@ -729,7 +732,9 @@
     } else if (isChoice) {
       renderChoice(s);
     } else if (isCard) {
-      $("s-mt").textContent = s.mt;
+      // Карточка-переворот: ответ скрыт, пока не нажмёшь.
+      $("s-mt").textContent = "нажми, чтобы увидеть ответ";
+      $("s-mt").classList.add("placeholder");
     }
   }
 
@@ -821,6 +826,7 @@
     $("s-known").innerHTML = renderNewWords(unfamiliarOf(s), true);
     $("s-reveal").hidden = true;
     $("s-check").hidden = true;
+    $("s-grade").hidden = true;
     grade(sid(s), "sent", ok);
     if (ok) {
       window.setTimeout(function () { if (sPool[sIndex] === s) nextSentence(); }, 900);
@@ -857,6 +863,7 @@
       });
     } else {
       $("s-mt").textContent = s.mt;
+      $("s-mt").classList.remove("placeholder");
     }
     feedback(true, s, true);
     renderTranslit($("s-translit"), s.mt);
@@ -913,9 +920,12 @@
   function gradeSentence(ok) {
     var s = sPool[sIndex];
     if (!s || sDone) return;
-    // finishSentence сам уходит дальше при верном ответе;
-    // при неверном ждём, пока пользователь нажмёт «Другое предложение».
+    // Карточка — это самооценка: ответ уже показан, поэтому уходим дальше
+    // и при «Не знаю», и при «Знаю».
     finishSentence(s, ok);
+    if (!ok) {
+      window.setTimeout(function () { if (sPool[sIndex] === s) nextSentence(); }, 1200);
+    }
   }
 
   function nextSentence() {
