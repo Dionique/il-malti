@@ -79,7 +79,7 @@
         <label>Режим
           <select id="s-mode">
             <option value="build">Собрать из слов</option>
-            <option value="type">Перевод (ввод)</option>
+            <option value="choice">Выбор перевода</option>
             <option value="card">Карточка</option>
           </select>
         </label>
@@ -118,9 +118,8 @@
           <div class="chips" id="s-chips"></div>
         </div>
 
-        <div id="s-type" hidden>
-          <div class="kbd" id="s-kbd"></div>
-          <textarea id="s-input" rows="2" placeholder="Напишите предложение по-мальтийски…"></textarea>
+        <div id="s-choice" hidden>
+          <div class="choice-list" id="s-choice-list"></div>
         </div>
 
         <div id="s-cardbox" hidden>

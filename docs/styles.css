@@ -423,6 +423,42 @@ textarea { width: 100%; resize: vertical; min-height: 64px; }
   font-weight: 600;
 }
 
+.choice-list { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 12px; }
+
+.opt-sentence {
+  font: inherit;
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 13px 16px;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.opt-sentence:hover { border-color: #d9cfc7; }
+
+.opt-sentence.picked {
+  background: var(--accent-soft);
+  border-color: #f3c9d1;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.opt-sentence.ok {
+  background: var(--good-soft);
+  border-color: #a8d8bd;
+  color: var(--good);
+  font-weight: 700;
+}
+
+.opt-sentence.bad {
+  background: var(--bad-soft);
+  border-color: #edb9b4;
+  color: var(--bad);
+  text-decoration: line-through;
+}
+
 .kbd { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
 
 .key {

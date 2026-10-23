@@ -516,7 +516,7 @@
   /* ---------- sentences ---------- */
 
   var sPool = [], sIndex = 0, sTopic = "all", sMode = "build";
-  var sTokens = [], sAnswer = [], sRevealed = false;
+  var sTokens = [], sAnswer = [], sRevealed = false, sDone = false;
   var sBypass = false, sReviewAll = false, sLocked = 0, sUnlocked = 0;
 
   function sid(s) { return "s:" + s.mt; }
@@ -545,6 +545,7 @@
       sTopic = e.target.value; sBypass = false; sReviewAll = false; buildSentencePool();
     });
     $("s-mode").addEventListener("change", function (e) { sMode = e.target.value; showSentence(); });
+    $("s-choice-list").addEventListener("click", onChoiceClick);
     $("s-next").addEventListener("click", nextSentence);
     $("s-check").addEventListener("click", checkSentence);
     $("s-reveal").addEventListener("click", revealSentence);
@@ -561,7 +562,6 @@
     $("s-bypass").addEventListener("click", function () { sBypass = true; buildSentencePool(); });
     $("s-review-all").addEventListener("click", function () { sReviewAll = true; buildSentencePool(); });
 
-    renderSpecialKeys($("s-kbd"), function (ch) { insertAtCursor($("s-input"), ch); });
     buildSentencePool();
   }
 
@@ -685,6 +685,7 @@
     $("s-work").hidden = false;
     $("s-actions").hidden = false;
     sRevealed = false;
+    sDone = false;
 
     var linked = linkedOf(s);
     var unfamiliar = unfamiliarOf(s);
@@ -712,22 +713,21 @@
     renderTranslit($("s-translit"), "");
 
     var isBuild = sMode === "build";
-    var isType = sMode === "type";
+    var isChoice = sMode === "choice";
     var isCard = sMode === "card";
 
     $("s-build").hidden = !isBuild;
-    $("s-type").hidden = !isType;
+    $("s-choice").hidden = !isChoice;
     $("s-cardbox").hidden = !isCard;
-    $("s-check").hidden = isCard;
-    $("s-reveal").textContent = isCard ? "Показать ответ" : "Подсказка (показать ответ)";
+    $("s-check").hidden = !isBuild;
+    $("s-reveal").textContent = isBuild ? "Подсказка (показать ответ)" : "Показать ответ";
 
     if (isBuild) {
       sTokens = tokenize(s.mt);
       sAnswer = [];
       renderBuild();
-    } else if (isType) {
-      $("s-input").value = "";
-      $("s-input").focus();
+    } else if (isChoice) {
+      renderChoice(s);
     } else if (isCard) {
       $("s-mt").textContent = s.mt;
     }
@@ -744,6 +744,43 @@
         return "<b>" + escapeHtml(w.mt) + "</b> — " + escapeHtml(w.ru);
       }).join(", ") : "нажми «Показать ответ»") +
       "</span>";
+  }
+
+  // Режим «Выбор перевода»: русская фраза дана, надо узнать мальтийскую.
+  // Дистракторы берём из той же темы и близкой длины, чтобы не угадывать.
+  function choiceOptions(s) {
+    var mine = s.mt.split(" ").length;
+    var rest = SENTENCES.filter(function (x) { return x.mt !== s.mt; });
+    rest.sort(function (a, b) {
+      var ta = a.topic === s.topic ? 0 : 1;
+      var tb = b.topic === s.topic ? 0 : 1;
+      if (ta !== tb) return ta - tb;
+      return Math.abs(a.mt.split(" ").length - mine) -
+             Math.abs(b.mt.split(" ").length - mine);
+    });
+    return shuffle([s].concat(rest.slice(0, 2)));
+  }
+
+  function renderChoice(s) {
+    $("s-choice-list").innerHTML = choiceOptions(s).map(function (o) {
+      return '<button class="opt-sentence" data-mt="' + escapeHtml(o.mt) + '">' +
+        escapeHtml(o.mt) + "</button>";
+    }).join("");
+  }
+
+  function onChoiceClick(e) {
+    var btn = e.target.closest(".opt-sentence");
+    if (!btn || sMode !== "choice" || sDone) return;
+    var s = sPool[sIndex];
+    if (!s) return;
+    var picked = btn.dataset.mt;
+    var ok = picked === s.mt;
+    Array.prototype.forEach.call($("s-choice-list").querySelectorAll(".opt-sentence"), function (o) {
+      o.classList.remove("picked", "ok", "bad");
+      if (o.dataset.mt === s.mt) o.classList.add("ok");
+      else if (o.dataset.mt === picked) o.classList.add("bad");
+    });
+    finishSentence(s, ok);
   }
 
   function renderBuild() {
@@ -776,30 +813,32 @@
     renderBuild();
   }
 
-  function checkSentence() {
-    var s = sPool[sIndex];
-    if (!s) return;
-    var user;
-    if (sMode === "build") {
-      user = sAnswer.map(function (i) { return sTokens[i].clean; }).join(" ");
-    } else {
-      user = $("s-input").value;
-    }
-    var ok = norm(user) === norm(s.mt);
+  // Общее завершение: показать разбор, засчитать ответ, при верном — уйти дальше.
+  function finishSentence(s, ok) {
+    sDone = true;
     feedback(ok, s);
-    if (!ok) renderDiff(user, s);
     renderTranslit($("s-translit"), s.mt);
     $("s-known").innerHTML = renderNewWords(unfamiliarOf(s), true);
+    $("s-reveal").hidden = true;
+    $("s-check").hidden = true;
     grade(sid(s), "sent", ok);
     if (ok) {
-      var graded = s;
-      window.setTimeout(function () { if (sPool[sIndex] === graded) nextSentence(); }, 900);
+      window.setTimeout(function () { if (sPool[sIndex] === s) nextSentence(); }, 900);
     }
+  }
+
+  function checkSentence() {
+    var s = sPool[sIndex];
+    if (!s || sDone) return;
+    var user = sAnswer.map(function (i) { return sTokens[i].clean; }).join(" ");
+    var ok = norm(user) === norm(s.mt);
+    if (!ok) renderDiff(user, s);
+    finishSentence(s, ok);
   }
 
   function revealSentence() {
     var s = sPool[sIndex];
-    if (!s || sRevealed) return;
+    if (!s || sRevealed || sDone) return;
     sRevealed = true;
     if (sMode === "build") {
       var order = [];
@@ -811,8 +850,11 @@
       });
       sAnswer = order;
       renderBuild();
-    } else if (sMode === "type") {
-      $("s-input").value = s.mt;
+    } else if (sMode === "choice") {
+      Array.prototype.forEach.call($("s-choice-list").querySelectorAll(".opt-sentence"), function (o) {
+        o.classList.remove("bad");
+        o.classList.toggle("ok", o.dataset.mt === s.mt);
+      });
     } else {
       $("s-mt").textContent = s.mt;
     }
@@ -870,9 +912,10 @@
 
   function gradeSentence(ok) {
     var s = sPool[sIndex];
-    if (!s) return;
-    grade(sid(s), "sent", ok);
-    nextSentence();
+    if (!s || sDone) return;
+    // finishSentence сам уходит дальше при верном ответе;
+    // при неверном ждём, пока пользователь нажмёт «Другое предложение».
+    finishSentence(s, ok);
   }
 
   function nextSentence() {
@@ -884,16 +927,6 @@
     if (sReviewAll) { sPool = []; sIndex = 0; showSentence(); return; }
     sBypass = false;
     buildSentencePool();
-  }
-
-  function insertAtCursor(el, text) {
-    if (!el) return;
-    var start = el.selectionStart == null ? el.value.length : el.selectionStart;
-    var end = el.selectionEnd == null ? el.value.length : el.selectionEnd;
-    el.value = el.value.slice(0, start) + text + el.value.slice(end);
-    var pos = start + text.length;
-    el.selectionStart = el.selectionEnd = pos;
-    el.focus();
   }
 
   function renderSpecialKeys(container, onPick) {
@@ -1490,9 +1523,6 @@
     initTabs();
     $("s-chips").addEventListener("click", onChipClick);
     $("s-answer").addEventListener("click", onChipClick);
-    $("s-input").addEventListener("keydown", function (e) {
-      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); checkSentence(); }
-    });
   }
 
   if (document.readyState === "loading") {

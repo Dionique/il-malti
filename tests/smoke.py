@@ -183,14 +183,53 @@ def main():
               predicate=lambda s: "[" in s)
         page.click("#s-next")
 
-        # type mode hides the new words, special keys insert characters
-        page.select_option("#s-mode", "type")
-        check("type mode visible", page.locator("#s-type").is_hidden(), False)
-        check("new words hidden in type mode", page.inner_text("#s-known"),
+        # «Выбор перевода»: русская фраза дана, нужно узнать мальтийскую
+        page.select_option("#s-mode", "choice")
+        check("choice mode visible", page.locator("#s-choice").is_hidden(), False)
+        check("new words hidden in choice mode", page.inner_text("#s-known"),
               predicate=lambda s: "нажми" in s)
-        check("special keys count", page.locator("#s-kbd .key").count(), 11)
-        page.locator("#s-kbd .key").first.click()
-        check("key inserted into input", page.input_value("#s-input"), predicate=lambda v: v == "\u010b")
+        check("three translation options",
+              page.locator("#s-choice-list .opt-sentence").count(), 3)
+        check("the correct sentence is among the options", page.evaluate("""() => {
+              const ru = document.getElementById('s-ru').textContent;
+              const s = window.SENTENCES.find(x => x.ru === ru);
+              if (!s) return null;
+              return [...document.querySelectorAll('#s-choice-list .opt-sentence')]
+                       .some(o => o.dataset.mt === s.mt);
+            }"""), True)
+        check("варианты не повторяются", page.evaluate("""() => {
+              const t = [...document.querySelectorAll('#s-choice-list .opt-sentence')]
+                          .map(o => o.dataset.mt);
+              return new Set(t).size === t.length;
+            }"""), True)
+        page.evaluate("""() => {
+            const ru = document.getElementById('s-ru').textContent;
+            const s = window.SENTENCES.find(x => x.ru === ru);
+            [...document.querySelectorAll('#s-choice-list .opt-sentence')]
+              .find(o => o.dataset.mt !== s.mt).click();
+          }""")
+        check("a wrong choice is reported", page.inner_text("#s-feedback"),
+              predicate=lambda s: s.startswith("Не так"))
+        check("the correct option is highlighted",
+              page.locator("#s-choice-list .ok").count(), 1)
+        check("the wrong option is marked", page.locator("#s-choice-list .bad").count(), 1)
+        check("no check button needed in choice mode",
+              page.locator("#s-check").is_hidden(), True)
+        check("the sentence transcription is shown", page.inner_text("#s-translit"),
+              predicate=lambda s: "[" in s)
+
+        # верный выбор уходит дальше сам
+        page.click("#s-next")
+        page.evaluate("""() => {
+            const ru = document.getElementById('s-ru').textContent;
+            const s = window.SENTENCES.find(x => x.ru === ru);
+            [...document.querySelectorAll('#s-choice-list .opt-sentence')]
+              .find(o => o.dataset.mt === s.mt).click();
+          }""")
+        check("a correct choice is accepted", page.inner_text("#s-feedback"), "Правильно!")
+        page.wait_for_timeout(1300)
+        check("a correct choice advances by itself",
+              page.locator("#s-choice-list .ok").count(), 0)
 
         # card mode reveals the new words together with the answer
         page.select_option("#s-mode", "card")
@@ -226,14 +265,18 @@ def main():
         failed = page.inner_text("#s-mt")
         page.click("#s-reveal")
         page.click("#s-no")
+        # после ответа «Показать ответ» скрывается — дальше идём кнопкой в панели
+        page.click("#s-next")
         for _ in range(totals["open"] - 1):
             page.click("#s-reveal")
             page.click("#s-yes")
+        page.wait_for_timeout(1300)      # ждём отложенный автопереход
         check("failed phrase returned", page.inner_text("#s-counter"),
-              predicate=lambda s: "из 1" in s)
+              predicate=lambda s: s.startswith("Фраза 1 из 1"))
         check("it is the same phrase", page.inner_text("#s-mt"), failed)
         page.click("#s-reveal")
         page.click("#s-yes")
+        page.wait_for_timeout(1300)      # ждём отложенный автопереход
         check("phrases done for today", page.locator("#s-done").is_visible(), True)
         check("done text reports new phrases", page.inner_text("#s-done-text"),
               predicate=lambda s: "Новых фраз сегодня: %d" % totals["open"] in s)
@@ -352,12 +395,35 @@ def main():
         check("state from an older version still works", page.inner_text("#fm-counter"),
               predicate=lambda s: "Упражнение 1" in s)
 
-        # --- разбор ошибок в предложениях ---
+        # --- разбор ошибок: собираем фразу в неверном порядке ---
         page.evaluate("() => localStorage.clear()")
         page.reload()
         page.click('.tab[data-tab="sentences"]')
-        page.select_option("#s-mode", "type")
-        page.locator("#s-input").fill("Ħażin ħafna kliem")
+        # открыть все фразы, иначе в пуле одни односложные приветствия
+        linked_all = page.evaluate(
+            "() => [...new Set(Object.values(window.SENTENCE_LINKS).flatMap(v => v.words))]")
+        page.evaluate("s => localStorage.setItem('il-malti-v1', s)", json.dumps({
+            "items": {("w:" + mt): {"b": 1, "d": 0, "f": 0} for mt in linked_all},
+            "stats": {}, "days": {}}))
+        page.reload()
+        page.click('.tab[data-tab="sentences"]')
+        page.select_option("#s-mode", "build")
+        page.select_option("#s-limit", "0")
+        words_in_phrase = None
+        for _ in range(40):
+            words_in_phrase = page.evaluate("""() => {
+              const ru = document.getElementById('s-ru').textContent;
+              const s = window.SENTENCES.find(x => x.ru === ru);
+              return s ? s.mt.split(' ') : null;
+            }""")
+            if words_in_phrase and len(words_in_phrase) >= 3:
+                break
+            page.click("#s-next")
+        check("нашли фразу из трёх и более слов", len(words_in_phrase),
+              predicate=lambda n: n >= 3)
+        # кликаем слова в обратном порядке — порядок заведомо неверный
+        for i in range(len(words_in_phrase) - 1, -1, -1):
+            page.locator("#s-chips .chip").nth(i).click()
         page.click("#s-check")
         check("a wrong sentence is reported", page.inner_text("#s-feedback"),
               predicate=lambda s: s.startswith("Не так"))
@@ -370,6 +436,7 @@ def main():
         page.click("#s-next")
         check("the diff is cleared for the next sentence",
               page.locator("#s-diff").is_hidden(), True)
+        page.select_option("#s-limit", "5")
 
         # --- alphabet ---        # --- alphabet ---
         page.click('.tab[data-tab="alphabet"]')
