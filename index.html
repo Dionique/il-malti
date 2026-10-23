@@ -12,7 +12,7 @@
     <nav class="tabs" id="tabs">
       <button class="tab" data-tab="words">Слова</button>
       <button class="tab" data-tab="sentences">Предложения</button>
-      <button class="tab" data-tab="pairs">Сочетания</button>
+      <button class="tab" data-tab="forms">Формы</button>
       <button class="tab" data-tab="alphabet">Алфавит</button>
       <button class="tab" data-tab="progress">Прогресс</button>
     </nav>
@@ -142,14 +142,15 @@
         </div>
         <span id="s-feedback" class="feedback"></span>
       </div>
+      <div class="diff" id="s-diff" hidden></div>
 
     </section>
 
-    <section id="view-pairs" class="view" hidden>
+    <section id="view-forms" class="view" hidden>
       <div class="bar">
-        <button id="pr-shuffle" class="btn ghost small">Перемешать</button>
+        <label>Режим <select id="fm-mode"></select></label>
         <label>Новых в день
-          <select id="pr-limit">
+          <select id="fm-limit">
             <option value="5">5</option>
             <option value="10">10</option>
             <option value="15">15</option>
@@ -157,49 +158,33 @@
             <option value="0">без лимита</option>
           </select>
         </label>
+        <button id="fm-shuffle" class="btn ghost small">Перемешать</button>
       </div>
-      <div class="counter" id="pr-counter"></div>
+      <div class="counter" id="fm-counter"></div>
 
-      <div class="card" id="pr-card">
-        <div class="card-tag">Определи род, форму глагола и перевод</div>
-        <div class="pair-prompt">
-          <span class="pair-part" id="pr-noun"></span>
-          <span class="pair-plus">+</span>
-          <span class="pair-part" id="pr-verb"></span>
-        </div>
+      <div class="card" id="fm-card">
+        <div class="card-tag">Подбери правильные формы</div>
+        <div class="pair-prompt" id="fm-prompt"></div>
       </div>
 
-      <div id="pr-quiz">
-        <div class="quiz-row">
-          <div class="quiz-label">1. Род существительного</div>
-          <div class="quiz-options" id="pr-gender"></div>
-        </div>
-        <div class="quiz-row">
-          <div class="quiz-label">2. Форма глагола (настоящее время)</div>
-          <div class="quiz-options" id="pr-form"></div>
-        </div>
-        <div class="quiz-row">
-          <div class="quiz-label">3. Перевод сочетания</div>
-          <div class="quiz-options" id="pr-ru"></div>
-        </div>
+      <div id="fm-quiz"></div>
+      <input type="hidden" id="fm-correct">
+
+      <div class="card-extra" id="fm-answer" hidden></div>
+      <div class="translit" id="fm-translit" hidden></div>
+
+      <div class="actions" id="fm-actions">
+        <button id="fm-check" class="btn">Проверить</button>
+        <button id="fm-reveal" class="btn ghost">Показать ответ</button>
+        <button id="fm-next" class="btn ghost" hidden>Дальше</button>
+        <span id="fm-feedback" class="feedback"></span>
       </div>
 
-      <div class="card-extra" id="pr-answer" hidden></div>
-      <div class="translit" id="pr-translit" hidden></div>
-
-      <div class="actions" id="pr-actions">
-        <button id="pr-check" class="btn">Проверить</button>
-        <button id="pr-reveal" class="btn ghost">Показать ответ</button>
-        <button id="pr-next" class="btn ghost" hidden>Дальше</button>
-        <span id="pr-feedback" class="feedback"></span>
-      </div>
-
-
-      <div class="done" id="pr-done" hidden>
+      <div class="done" id="fm-done" hidden>
         <div class="done-title">На сегодня всё</div>
-        <div class="done-text" id="pr-done-text"></div>
-        <div class="actions" id="pr-done-actions">
-          <button id="pr-bypass" class="btn">Учить сверх лимита</button>
+        <div class="done-text" id="fm-done-text"></div>
+        <div class="actions" id="fm-done-actions">
+          <button id="fm-bypass" class="btn">Учить сверх лимита</button>
         </div>
       </div>
     </section>
@@ -240,6 +225,7 @@
   <script src="data/ipa.js"></script>
   <script src="data/links.js"></script>
   <script src="data/pairs.js"></script>
+  <script src="data/forms.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

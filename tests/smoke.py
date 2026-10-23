@@ -253,88 +253,95 @@ def main():
               page.inner_text("#s-counter"),
               predicate=lambda s: "открыто фраз: 270 из 270" in s)
 
-        # --- noun + verb mode ---
+        # --- формы: четыре режима на одном движке ---
         page.evaluate("() => localStorage.clear()")
         page.reload()
-        page.click('.tab[data-tab="pairs"]')
-        check("pairs queue respects the daily limit", page.inner_text("#pr-counter"),
-              predicate=lambda s: "Сочетание 1 из 10" in s and "0/10" in s)
-        check("the pair is shown as noun + verb",
-              page.inner_text("#pr-noun") + " + " + page.inner_text("#pr-verb"),
-              predicate=lambda s: " + " in s and len(s) > 4)
-        check("gender options", page.locator("#pr-gender .opt").count(), 3)
-        check("verb form options", page.locator("#pr-form .opt").count(), 3)
-        check("translation options", page.locator("#pr-ru .opt").count(), 3)
-        page.click("#pr-check")
-        check("an incomplete answer is rejected", page.inner_text("#pr-feedback"),
-              predicate=lambda s: "все три" in s)
+        page.click('.tab[data-tab="forms"]')
+        check("four morphology modes offered", page.locator("#fm-mode option").count(), 4)
+        check("queue respects the daily limit", page.inner_text("#fm-counter"),
+              predicate=lambda s: "Упражнение 1 из 10" in s and "0/10" in s)
 
-        # deliberately wrong answer on every row (options are shuffled,
-        # so pick an option whose value differs from the correct one)
-        answers = page.evaluate("""() => {
-          const subject = document.getElementById('pr-noun').textContent;
-          const verbMt = document.getElementById('pr-verb').textContent;
-          const p = window.PAIRS.find(x => x.subject === subject && x.verbMt === verbMt);
-          const wrong = (sel, correct) => {
-            const els = [...document.querySelectorAll(sel + ' .opt')];
-            const el = els.find(e => e.dataset.val !== correct);
-            return el ? el.dataset.val : null;
-          };
-          return {
-            gender: wrong('#pr-gender', p.gender),
-            form: wrong('#pr-form', p.form),
-            ru: wrong('#pr-ru', p.ru),
-          };
-        }""")
-        check("a wrong option exists on every row",
-              [v for v in answers.values() if v is None], [])
-        page.locator('#pr-gender .opt[data-val="%s"]' % answers["gender"]).click()
-        page.locator('#pr-form .opt[data-val="%s"]' % answers["form"]).click()
-        page.locator('#pr-ru .opt[data-val="%s"]' % answers["ru"]).click()
-        page.click("#pr-check")
-        check("a wrong answer is reported", page.inner_text("#pr-feedback"),
-              predicate=lambda s: s.startswith("Неверно") or s == "Разбор ниже")
-        check("the correct options are highlighted",
-              page.locator("#pr-gender .opt.ok").count(), 1)
-        check("the full sentence is shown", page.inner_text("#pr-answer"),
-              predicate=lambda s: len(s.split("\n")) >= 2)
-        check("the sentence has a transcription", page.inner_text("#pr-translit"),
-              predicate=lambda s: "[" in s)
-        check("a next button appears after a wrong answer",
-              page.locator("#pr-next").is_hidden(), False)
-        page.click("#pr-next")
-        check("the pair counter advances", page.inner_text("#pr-counter"),
-              predicate=lambda s: "Сочетание 2 из 10" in s and "1/10" in s)
+        rows_expected_map = {"pair": 3, "agree": 4, "plural": 2, "prep": 2}
+        for mode, rows_expected in (("pair", 3), ("agree", 4), ("plural", 2), ("prep", 2)):
+            page.select_option("#fm-mode", mode)
+            check("%s: question rows" % mode,
+                  page.locator("#fm-quiz .quiz-row").count(), rows_expected)
+            check("%s: prompt rendered" % mode, page.inner_text("#fm-prompt"),
+                  predicate=lambda s: len(s.strip()) > 0)
+            check("%s: every row offers choices" % mode,
+                  page.evaluate("""() => [...document.querySelectorAll('#fm-quiz .quiz-options')]
+                      .every(b => b.querySelectorAll('.opt').length >= 2)"""), True)
+            check("%s: every row has a real correct answer" % mode,
+                  page.evaluate("""() => {
+                    const rows = JSON.parse(document.getElementById('fm-correct').value);
+                    return rows.length > 0 && rows.every(r =>
+                      [...document.querySelectorAll('#fm-quiz .quiz-options[data-key="' + r.key + '"] .opt')]
+                        .some(o => o.dataset.value === r.correct));
+                  }"""), True)
+            page.click("#fm-check")
+            check("%s: incomplete answer rejected" % mode, page.inner_text("#fm-feedback"),
+                  predicate=lambda s: "все пункты" in s)
 
-        # correct answer advances on its own
-        page.evaluate("() => localStorage.clear()")
-        page.reload()
-        page.click('.tab[data-tab="pairs"]')
-        correct = page.evaluate("""() => {
-          const subject = document.getElementById('pr-noun').textContent;
-          const verbMt = document.getElementById('pr-verb').textContent;
-          const p = window.PAIRS.find(x => x.subject === subject && x.verbMt === verbMt);
-          return p ? { gender: p.gender, form: p.form, ru: p.ru } : null;
-        }""")
-        check("the shown pair exists in the data", correct is not None, True)
-        page.locator('#pr-gender .opt[data-val="%s"]' % correct["gender"]).click()
-        page.locator('#pr-form .opt[data-val="%s"]' % correct["form"]).click()
-        page.locator('#pr-ru .opt[data-val="%s"]' % correct["ru"]).click()
-        page.click("#pr-check")
-        check("a fully correct answer is accepted", page.inner_text("#pr-feedback"), "Верно!")
+        # неверный ответ по каждому пункту -> режим должен назвать, что не так
+        for mode in ("pair", "agree", "plural", "prep"):
+            page.select_option("#fm-mode", mode)
+            rows = page.evaluate("() => JSON.parse(document.getElementById('fm-correct').value)")
+            for r in rows:
+                page.evaluate("""r => {
+                  const box = document.querySelector("#fm-quiz .quiz-options[data-key='" + r.key + "']");
+                  const el = [...box.querySelectorAll('.opt')].find(o => o.dataset.value !== r.correct);
+                  if (el) el.click();
+                }""", r)
+            page.click("#fm-check")
+            check("%s: wrong answer is named" % mode, page.inner_text("#fm-feedback"),
+                  predicate=lambda s: s.startswith("Неверно"))
+            check("%s: correct options are highlighted" % mode,
+                  page.locator("#fm-quiz .opt.ok").count(), rows_expected_map[mode])
+            check("%s: the answer is shown" % mode, page.inner_text("#fm-answer"),
+                  predicate=lambda s: len(s.strip()) > 0)
+
+        # верный ответ уходит сам
+        page.select_option("#fm-mode", "agree")
+        rows = page.evaluate("() => JSON.parse(document.getElementById('fm-correct').value)")
+        for r in rows:
+            page.evaluate("""r => {
+              const box = document.querySelector("#fm-quiz .quiz-options[data-key='" + r.key + "']");
+              [...box.querySelectorAll('.opt')].find(o => o.dataset.value === r.correct).click();
+            }""", r)
+        page.click("#fm-check")
+        check("a fully correct answer is accepted", page.inner_text("#fm-feedback"), "Верно!")
         page.wait_for_timeout(1300)
-        check("a correct answer advances by itself", page.inner_text("#pr-counter"),
-              predicate=lambda s: "Сочетание 2 из 10" in s)
+        check("a correct answer advances by itself", page.inner_text("#fm-counter"),
+              predicate=lambda s: "Упражнение 2 из 10" in s)
 
-        # old saved state without the "pair" bucket must not break anything
+        # старое сохранённое состояние без новых счётчиков не должно ломать вкладку
         page.evaluate("""() => localStorage.setItem('il-malti-v1',
           JSON.stringify({items:{},stats:{word:{ok:1,no:0},sent:{ok:0,no:0}},days:{}}))""")
         page.reload()
-        page.click('.tab[data-tab="pairs"]')
-        check("state saved by an older version still works", page.inner_text("#pr-counter"),
-              predicate=lambda s: "Сочетание 1" in s)
+        page.click('.tab[data-tab="forms"]')
+        check("state from an older version still works", page.inner_text("#fm-counter"),
+              predicate=lambda s: "Упражнение 1" in s)
 
-        # --- alphabet ---
+        # --- разбор ошибок в предложениях ---
+        page.evaluate("() => localStorage.clear()")
+        page.reload()
+        page.click('.tab[data-tab="sentences"]')
+        page.select_option("#s-mode", "type")
+        page.locator("#s-input").fill("Ħażin ħafna kliem")
+        page.click("#s-check")
+        check("a wrong sentence is reported", page.inner_text("#s-feedback"),
+              predicate=lambda s: s.startswith("Не так"))
+        check("the diff block appears", page.locator("#s-diff").is_hidden(), False)
+        diff = page.inner_text("#s-diff")
+        check("the diff shows both answers", diff,
+              predicate=lambda s: "твой ответ" in s and "правильно" in s)
+        check("the diff counts the mismatches", diff,
+              predicate=lambda s: "Расхождений" in s)
+        page.click("#s-next")
+        check("the diff is cleared for the next sentence",
+              page.locator("#s-diff").is_hidden(), True)
+
+        # --- alphabet ---        # --- alphabet ---
         page.click('.tab[data-tab="alphabet"]')
         check("alphabet cells", page.locator("#alpha-grid .alpha-cell").count(), 30)
         check("alphabet copy keys", page.locator("#copy-kbd .key").count(), 11)

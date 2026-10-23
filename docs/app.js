@@ -77,7 +77,7 @@
   function freshState() {
     return {
       items: {},
-      stats: { word: { ok: 0, no: 0 }, sent: { ok: 0, no: 0 }, pair: { ok: 0, no: 0 } },
+      stats: { word: { ok: 0, no: 0 }, sent: { ok: 0, no: 0 }, form: { ok: 0, no: 0 } },
       days: {}
     };
   }
@@ -93,7 +93,7 @@
         state.items = parsed.items || {};
         state.days = parsed.days || {};
         state.stats = parsed.stats || {};
-        ["word", "sent", "pair"].forEach(function (k) {
+        ["word", "sent", "pair", "form"].forEach(function (k) {
           state.stats[k] = state.stats[k] || { ok: 0, no: 0 };
         });
       }
@@ -315,7 +315,7 @@
     if (name === "progress") renderProgress();
     if (name === "words") showWord();
     if (name === "sentences") showSentence();
-    if (name === "pairs") showPair();
+    if (name === "forms") fmShow();
   }
 
   /* ---------- words ---------- */
@@ -700,6 +700,8 @@
     $("s-counter").textContent = parts.join(" · ");
 
     $("s-known").innerHTML = renderNewWords(unfamiliar, false);
+    $("s-diff").hidden = true;
+    $("s-diff").innerHTML = "";
     $("s-feedback").textContent = "";
     $("s-feedback").className = "feedback";
     $("s-reveal").hidden = false;
@@ -782,6 +784,7 @@
     }
     var ok = norm(user) === norm(s.mt);
     feedback(ok, s);
+    if (!ok) renderDiff(user, s);
     renderTranslit($("s-translit"), s.mt);
     $("s-known").innerHTML = renderNewWords(unfamiliarOf(s), true);
     grade(sid(s), "sent", ok);
@@ -814,6 +817,38 @@
     renderTranslit($("s-translit"), s.mt);
     $("s-known").innerHTML = renderNewWords(unfamiliarOf(s), true);
     if (sMode === "card") $("s-grade").hidden = false;
+  }
+
+  // Сравниваем ответ по словам: показываем, что именно разошлось.
+  function renderDiff(user, s) {
+    var u = tokenize(String(user || ""));
+    var c = tokenize(s.mt);
+    var n = Math.max(u.length, c.length);
+    var rows = [];
+    var bad = 0;
+    for (var i = 0; i < n; i++) {
+      var ut = u[i] ? u[i].clean : null;
+      var ct = c[i] ? c[i].clean : null;
+      var same = ut !== null && ct !== null && norm(ut) === norm(ct);
+      if (!same) bad++;
+      rows.push({
+        mine: u[i] ? u[i].raw : "…",
+        right: c[i] ? c[i].raw : "…",
+        same: same
+      });
+    }
+    var box = $("s-diff");
+    if (!bad) { box.hidden = true; box.innerHTML = ""; return; }
+    function line(tag, field) {
+      return '<div class="diff-row"><span class="diff-tag">' + tag + "</span>" +
+        rows.map(function (r) {
+          return '<span class="' + (r.same ? "dt-ok" : "dt-bad") + '">' +
+            escapeHtml(r[field]) + "</span>";
+        }).join(" ") + "</div>";
+    }
+    box.innerHTML = line("твой ответ", "mine") + line("правильно", "right") +
+      '<div class="diff-note">Расхождений: ' + bad + "</div>";
+    box.hidden = false;
   }
 
   function feedback(ok, s, revealed) {
@@ -870,215 +905,340 @@
     });
   }
 
-  /* ---------- pairs: noun + verb ---------- */
+  /* ---------- формы: 4 режима (сочетание / согласование / мн.ч. / предлоги) ---------- */
 
   var PAIRS = window.PAIRS || [];
-  var DEFAULT_PAIR_LIMIT = 10;
-  var GENDERS = [
-    { key: "m", label: "м. род" },
-    { key: "f", label: "ж. род" },
-    { key: "pl", label: "мн. ч." }
+  var FORMS = window.FORMS || { agreement: [], plural: [], prep: [] };
+  var DEFAULT_FM_LIMIT = 10;
+
+  var GENDER_CHOICES = [
+    { value: "m", label: "м. род" },
+    { value: "f", label: "ж. род" },
+    { value: "pl", label: "мн. ч." }
   ];
+  var GENDER_LABEL = { m: "м. род", f: "ж. род", pl: "мн. ч." };
 
-  var xPool = [], xIndex = 0, xState = "ask", xBypass = false;
-  var xPicked = { gender: null, form: null, ru: null };
+  var FM_MODES = {
+    pair: {
+      label: "Существительное + глагол",
+      prefix: "p:",
+      source: function () { return PAIRS; },
+      key: function (it) { return it.phrase; }
+    },
+    agree: {
+      label: "Согласование: сущ + прил + глаг",
+      prefix: "fa:",
+      source: function () { return FORMS.agreement || []; },
+      key: function (it) { return it.phrase; }
+    },
+    plural: {
+      label: "Множественное число",
+      prefix: "fp:",
+      source: function () { return FORMS.plural || []; },
+      key: function (it) { return it.noun; }
+    },
+    prep: {
+      label: "Предлоги и слитные формы",
+      prefix: "fr:",
+      source: function () { return FORMS.prep || []; },
+      key: function (it) { return it.prep + "|" + it.subject; }
+    }
+  };
 
-  function pid(p) { return "p:" + p.phrase; }
+  var fmList = [], fmPool = [], fmIndex = 0, fmPicked = {}, fmState = "ask", fmBypass = false;
 
-  function pairLimit() {
-    return state.pairLimit === undefined ? DEFAULT_PAIR_LIMIT : state.pairLimit;
+  function fmMode() { return $("fm-mode").value; }
+
+  function fmCurrentList() { return FM_MODES[fmMode()].list || []; }
+
+  function fmUid(mode, it) { return FM_MODES[mode].prefix + FM_MODES[mode].key(it); }
+
+  function fmLimit() {
+    return state.fmLimit === undefined ? DEFAULT_FM_LIMIT : state.fmLimit;
   }
 
-  function introducedPairsToday() { return countIntroduced("p:"); }
+  function fmIntroduced(mode) { return countIntroduced(FM_MODES[mode].prefix); }
 
-  function pairRemaining() {
-    var limit = pairLimit();
+  function fmRemaining(mode) {
+    var limit = fmLimit();
     if (!limit) return Infinity;
-    return Math.max(0, limit - introducedPairsToday());
+    return Math.max(0, limit - fmIntroduced(mode));
   }
 
-  function initPairs() {
-    $("pr-limit").value = String(pairLimit());
-    $("pr-limit").addEventListener("change", function (e) {
-      state.pairLimit = Number(e.target.value);
-      saveState();
-      xBypass = false;
-      buildPairPool();
+  function fmInit() {
+    // уникальный id каждому пункту, чтобы SRS не путался
+    Object.keys(FM_MODES).forEach(function (k) {
+      var m = FM_MODES[k];
+      m.list = m.source().map(function (it) {
+        return { data: it, uid: m.prefix + m.key(it) };
+      });
     });
-    $("pr-shuffle").addEventListener("click", function () { shuffle(xPool); xIndex = 0; showPair(); });
-    $("pr-check").addEventListener("click", checkPair);
-    $("pr-reveal").addEventListener("click", revealPair);
-    $("pr-next").addEventListener("click", nextPair);
-    $("pr-bypass").addEventListener("click", function () { xBypass = true; buildPairPool(); });
-    $("pr-quiz").addEventListener("click", onPairOption);
-    buildPairPool();
+    Object.keys(FM_MODES).forEach(function (k) {
+      var o = document.createElement("option");
+      o.value = k;
+      o.textContent = FM_MODES[k].label;
+      $("fm-mode").appendChild(o);
+    });
+    $("fm-limit").value = String(fmLimit());
+    $("fm-mode").addEventListener("change", function () {
+      fmBypass = false;
+      fmBuild();
+    });
+    $("fm-limit").addEventListener("change", function (e) {
+      state.fmLimit = Number(e.target.value);
+      saveState();
+      fmBypass = false;
+      fmBuild();
+    });
+    $("fm-shuffle").addEventListener("click", function () { shuffle(fmPool); fmIndex = 0; fmShow(); });
+    $("fm-check").addEventListener("click", fmCheck);
+    $("fm-reveal").addEventListener("click", fmReveal);
+    $("fm-next").addEventListener("click", fmNext);
+    $("fm-bypass").addEventListener("click", function () { fmBypass = true; fmBuild(); });
+    $("fm-quiz").addEventListener("click", fmPick);
+    fmBuild();
   }
 
-  function buildPairPool() {
-    xIndex = 0;
-    var reviews = PAIRS.filter(function (p) {
-      var r = state.items[pid(p)];
+  function fmBuild() {
+    var mode = fmMode();
+    var all = fmCurrentList();
+    fmIndex = 0;
+
+    var reviews = all.filter(function (x) {
+      var r = state.items[x.uid];
       return !!r && r.d <= dayNumber();
     }).sort(function (a, b) {
-      return state.items[pid(a)].d - state.items[pid(b)].d;
+      return state.items[a.uid].d - state.items[b.uid].d;
     });
 
-    var news = shuffle(PAIRS.filter(function (p) { return !state.items[pid(p)]; }));
-    var allowed = xBypass ? news.length : pairRemaining();
+    var news = shuffle(all.filter(function (x) { return !state.items[x.uid]; }));
+    var allowed = fmBypass ? news.length : fmRemaining(mode);
     if (allowed !== Infinity) news = news.slice(0, allowed);
 
-    xPool = reviews.concat(news);
-    showPair();
+    fmPool = reviews.concat(news);
+    fmShow();
   }
 
-  function translationOptions(p) {
-    var out = [p.ru];
-    var rest = shuffle(PAIRS.filter(function (q) { return q.ru !== p.ru; }));
-    for (var i = 0; i < rest.length && out.length < 3; i++) {
-      if (out.indexOf(rest[i].ru) === -1) out.push(rest[i].ru);
+  function fmPrompt(mode, it) {
+    function part(text) { return '<span class="pair-part">' + escapeHtml(text) + "</span>"; }
+    if (mode === "pair" || mode === "agree") {
+      var parts = [part(it.subject), part(it.adj), part(it.verbMt || it.verb)];
+      if (mode === "pair") parts = [part(it.subject), part(it.verbMt)];
+      return parts.join('<span class="pair-plus">+</span>');
     }
-    return out;
+    if (mode === "plural") {
+      return part(it.noun) + '<span class="pair-plus">→ мн. ч.</span>';
+    }
+    return part(it.prep) + '<span class="pair-plus">+</span>' + part(it.subject);
   }
 
-  function showPair() {
-    var p = xPool[xIndex];
-    var card = $("pr-card");
+  function fmRows(mode, it) {
+    var rows = [];
+    function vals(arr) {
+      return arr.map(function (v) { return { value: v, label: v }; });
+    }
+    function distractors(correct, source, n) {
+      var out = [];
+      shuffle(source.slice()).forEach(function (x) {
+        var v = x.ru || x.meaning;
+        if (v && v !== correct && out.indexOf(v) === -1 && out.length < n) out.push(v);
+      });
+      return out;
+    }
 
-    if (!p) {
+    if (mode === "pair") {
+      rows.push({ key: "gender", label: "1. Род существительного", options: GENDER_CHOICES, correct: it.gender });
+      rows.push({ key: "form", label: "2. Форма глагола (настоящее время)", options: vals(it.forms), correct: it.form });
+      rows.push({ key: "ru", label: "3. Перевод сочетания",
+                  options: vals([it.ru].concat(distractors(it.ru, FM_MODES.pair.list.map(function (x) { return x.data; }), 2))),
+                  correct: it.ru });
+    } else if (mode === "agree") {
+      var others = FM_MODES.agree.list.map(function (x) { return x.data; });
+      rows.push({ key: "gender", label: "1. Род существительного", options: GENDER_CHOICES, correct: it.gender });
+      rows.push({ key: "adjForm", label: "2. Форма прилагательного", options: vals(it.adjOptions), correct: it.adjForm });
+      rows.push({ key: "verbForm", label: "3. Форма глагола (" + escapeHtml(it.verb) + ")", options: vals(it.verbOptions), correct: it.verbForm });
+      rows.push({ key: "ru", label: "4. Перевод фразы",
+                  options: vals([it.ru].concat(distractors(it.ru, others, 2))), correct: it.ru });
+    } else if (mode === "plural") {
+      rows.push({ key: "plural", label: "1. Множественное число", options: vals(it.pluralOptions), correct: it.plural });
+      rows.push({ key: "definite", label: "2. Множественное число с артиклем", options: vals(it.definiteOptions), correct: it.definite });
+    } else {
+      var preps = FM_MODES.prep.list.map(function (x) { return x.data; });
+      var meanings = [];
+      preps.forEach(function (p) { if (meanings.indexOf(p.meaning) === -1) meanings.push(p.meaning); });
+      var mopts = [it.meaning].concat(shuffle(meanings.filter(function (m) { return m !== it.meaning; })).slice(0, 2));
+      rows.push({ key: "fused", label: "1. Слитная форма", options: vals(it.options), correct: it.fused });
+      rows.push({ key: "meaning", label: "2. Значение предлога", options: vals(shuffle(mopts)), correct: it.meaning });
+    }
+    return rows;
+  }
+
+  function fmShow() {
+    var wrapper = fmPool[fmIndex];
+    var mode = fmMode();
+    var card = $("fm-card");
+
+    if (!wrapper) {
       card.hidden = true;
-      $("pr-quiz").hidden = true;
-      $("pr-actions").hidden = true;
-      $("pr-done").hidden = false;
-      $("pr-done-text").textContent = pairLimit()
-        ? "Новых сочетаний сегодня: " + introducedPairsToday() + " из " + pairLimit() +
-          ". Следующее повторение: " + nextDueDate("p:") + "."
-        : "Следующее повторение: " + nextDueDate("p:") + ".";
-      $("pr-counter").textContent = "";
-      xBypass = false;
+      $("fm-quiz").hidden = true;
+      $("fm-actions").hidden = true;
+      $("fm-done").hidden = false;
+      var limit = fmLimit();
+      var total = fmCurrentList().length;
+      var done = fmIntroduced(mode);
+      $("fm-done-text").textContent = limit
+        ? "В этом режиме новых сегодня: " + done + " из " + limit +
+          ". Всего упражнений: " + total + ". Следующее повторение: " + nextDueDate(FM_MODES[mode].prefix) + "."
+        : "Всего упражнений: " + total + ". Следующее повторение: " + nextDueDate(FM_MODES[mode].prefix) + ".";
+      $("fm-counter").textContent = "";
+      fmBypass = false;
       return;
     }
 
+    var it = wrapper.data;
     card.hidden = false;
-    $("pr-done").hidden = true;
-    $("pr-quiz").hidden = false;
-    $("pr-actions").hidden = false;
-    xState = "ask";
-    xPicked = { gender: null, form: null, ru: null };
+    $("fm-done").hidden = true;
+    $("fm-quiz").hidden = false;
+    $("fm-actions").hidden = false;
+    fmState = "ask";
+    fmPicked = {};
 
-    $("pr-noun").textContent = p.subject;
-    $("pr-verb").textContent = p.verbMt;
+    $("fm-prompt").innerHTML = fmPrompt(mode, it);
 
-    $("pr-gender").innerHTML = GENDERS.map(function (g) {
-      return '<button class="opt" data-kind="gender" data-val="' + g.key + '">' +
-        g.label + "</button>";
+    var rows = fmRows(mode, it);
+    $("fm-quiz").innerHTML = rows.map(function (row) {
+      return '<div class="quiz-row"><div class="quiz-label">' + row.label + "</div>" +
+        '<div class="quiz-options" data-key="' + row.key + '">' +
+        row.options.map(function (o) {
+          return '<button class="opt" data-value="' + escapeHtml(o.value) + '">' +
+            escapeHtml(o.label) + "</button>";
+        }).join("") + "</div></div>";
     }).join("");
+    $("fm-correct").value = JSON.stringify(rows.map(function (r) {
+      return { key: r.key, correct: r.correct };
+    }));
 
-    $("pr-form").innerHTML = shuffle(p.forms.slice()).map(function (f) {
-      return '<button class="opt" data-kind="form" data-val="' + escapeHtml(f) + '">' +
-        escapeHtml(f) + "</button>";
-    }).join("");
+    $("fm-feedback").textContent = "";
+    $("fm-feedback").className = "feedback";
+    $("fm-answer").hidden = true;
+    $("fm-answer").innerHTML = "";
+    renderTranslit($("fm-translit"), "");
+    $("fm-check").hidden = false;
+    $("fm-reveal").hidden = false;
+    $("fm-next").hidden = true;
 
-    $("pr-ru").innerHTML = shuffle(translationOptions(p)).map(function (r) {
-      return '<button class="opt" data-kind="ru" data-val="' + escapeHtml(r) + '">' +
-        escapeHtml(r) + "</button>";
-    }).join("");
-
-    $("pr-feedback").textContent = "";
-    $("pr-feedback").className = "feedback";
-    $("pr-answer").hidden = true;
-    $("pr-answer").innerHTML = "";
-    renderTranslit($("pr-translit"), "");
-    $("pr-check").hidden = false;
-    $("pr-reveal").hidden = false;
-    $("pr-next").hidden = true;
-
-    var parts = ["Сочетание " + (xIndex + 1) + " из " + xPool.length];
-    if (pairLimit()) parts.push("новых сегодня: " + introducedPairsToday() + "/" + pairLimit());
-    if (xBypass) parts.push("сверх лимита");
-    $("pr-counter").textContent = parts.join(" · ");
+    var parts = ["Упражнение " + (fmIndex + 1) + " из " + fmPool.length];
+    if (fmLimit()) parts.push("новых сегодня: " + fmIntroduced(mode) + "/" + fmLimit());
+    if (fmBypass) parts.push("сверх лимита");
+    $("fm-counter").textContent = parts.join(" · ");
   }
 
-  function onPairOption(e) {
+  function fmPick(e) {
     var btn = e.target.closest(".opt");
-    if (!btn || !btn.dataset.kind) return;
-    if (xState === "done" || btn.closest("#pr-answer")) return;
-    xPicked[btn.dataset.kind] = btn.dataset.val;
-    Array.prototype.forEach.call(btn.parentNode.querySelectorAll(".opt"), function (o) {
+    if (!btn || fmState === "done") return;
+    var row = btn.parentNode;
+    fmPicked[row.dataset.key] = btn.dataset.value;
+    Array.prototype.forEach.call(row.querySelectorAll(".opt"), function (o) {
       o.classList.toggle("picked", o === btn);
     });
   }
 
-  function markRow(rowId, correct) {
-    Array.prototype.forEach.call($(rowId).querySelectorAll(".opt"), function (o) {
-      o.classList.remove("ok", "bad");
-      if (o.dataset.val === correct) o.classList.add("ok");
-      else if (o.classList.contains("picked")) o.classList.add("bad");
+  function fmCorrectRows() {
+    try { return JSON.parse($("fm-correct").value); } catch (e) { return []; }
+  }
+
+  function fmMark() {
+    var rows = fmCorrectRows();
+    Array.prototype.forEach.call($("fm-quiz").querySelectorAll(".quiz-options"), function (box) {
+      var key = box.dataset.key;
+      var row = rows.filter(function (r) { return r.key === key; })[0];
+      if (!row) return;
+      Array.prototype.forEach.call(box.querySelectorAll(".opt"), function (o) {
+        o.classList.remove("ok", "bad");
+        if (o.dataset.value === row.correct) o.classList.add("ok");
+        else if (o.classList.contains("picked")) o.classList.add("bad");
+      });
     });
   }
 
-  function markPair(p) {
-    markRow("pr-gender", p.gender);
-    markRow("pr-form", p.form);
-    markRow("pr-ru", p.ru);
-  }
-
-  function checkPair() {
-    var p = xPool[xIndex];
-    if (!p || xState === "done") return;
-    if (xPicked.gender == null || xPicked.form == null || xPicked.ru == null) {
-      $("pr-feedback").textContent = "Нужно ответить на все три пункта";
-      $("pr-feedback").className = "feedback neutral";
+  function fmCheck() {
+    if (fmState === "done") return;
+    var rows = fmCorrectRows();
+    var missing = rows.filter(function (r) { return fmPicked[r.key] == null; });
+    if (missing.length) {
+      $("fm-feedback").textContent = "Ответь на все пункты (" + rows.length + ")";
+      $("fm-feedback").className = "feedback neutral";
       return;
     }
-    var ok = xPicked.gender === p.gender && xPicked.form === p.form && xPicked.ru === p.ru;
-    markPair(p);
-    finishPair(p, ok);
+    var wrong = rows.filter(function (r) { return fmPicked[r.key] !== r.correct; });
+    fmMark();
+    fmFinish(wrong);
   }
 
-  function revealPair() {
-    var p = xPool[xIndex];
-    if (!p || xState === "done") return;
-    markPair(p);
-    finishPair(p, false);
+  function fmReveal() {
+    if (fmState === "done") return;
+    fmMark();
+    fmFinish(null, true);
   }
 
-  function finishPair(p, ok) {
-    xState = "done";
-    grade(pid(p), "pair", ok);
-    $("pr-check").hidden = true;
-    $("pr-reveal").hidden = true;
-    $("pr-next").hidden = false;
+  function fmFinish(wrong, revealed) {
+    var wrapper = fmPool[fmIndex];
+    var mode = fmMode();
+    var it = wrapper.data;
+    fmState = "done";
+    var ok = !revealed && wrong.length === 0;
+    grade(wrapper.uid, "form", ok);
 
-    var wrong = [];
-    if (xPicked.gender !== p.gender) wrong.push("род");
-    if (xPicked.form !== p.form) wrong.push("форма");
-    if (xPicked.ru !== p.ru) wrong.push("перевод");
-    $("pr-feedback").textContent = ok
-      ? "Верно!"
-      : (wrong.length === 3 ? "Разбор ниже" : "Неверно: " + wrong.join(", "));
-    $("pr-feedback").className = "feedback " + (ok ? "good" : "bad");
+    $("fm-check").hidden = true;
+    $("fm-reveal").hidden = true;
+    $("fm-next").hidden = false;
 
-    $("pr-answer").innerHTML =
-      '<div class="pair-answer">' + escapeHtml(p.phrase) + "</div>" +
-      '<div class="pair-answer-ru">' + escapeHtml(p.ru) + "</div>" +
-      '<div class="pair-answer-ru">' + escapeHtml(p.subject) + " — " +
-      escapeHtml(p.nounRu) + " · " + escapeHtml(p.verbMt) + " — " +
-      escapeHtml(p.verbRu) + "</div>";
-    $("pr-answer").hidden = false;
-    renderTranslit($("pr-translit"), p.phrase);
+    var labels = { gender: "род", adjForm: "форма прилагательного", verbForm: "форма глагола",
+                   form: "форма глагола", ru: "перевод", plural: "мн. число",
+                   definite: "артикль", fused: "слитная форма", meaning: "значение" };
+    $("fm-feedback").textContent = ok ? "Верно!"
+      : (revealed ? "Разбор" : "Неверно: " + wrong.map(function (r) { return labels[r.key] || r.key; }).join(", "));
+    $("fm-feedback").className = "feedback " + (ok ? "good" : "bad");
+
+    $("fm-answer").innerHTML = fmAnswer(mode, it);
+    $("fm-answer").hidden = false;
+    renderTranslit($("fm-translit"), mode === "agree" || mode === "pair" ? it.phrase : "");
 
     if (ok) {
       window.setTimeout(function () {
-        if (xState === "done" && xPool[xIndex] === p) nextPair();
+        if (fmState === "done" && fmPool[fmIndex] === wrapper) fmNext();
       }, 900);
     }
   }
 
-  function nextPair() {
-    xIndex++;
-    if (xIndex < xPool.length) { showPair(); return; }
-    xBypass = false;
-    buildPairPool();
+  function fmAnswer(mode, it) {
+    if (mode === "pair") {
+      return '<div class="pair-answer">' + escapeHtml(it.phrase) + "</div>" +
+        '<div class="pair-answer-ru">' + escapeHtml(it.ru) + "</div>" +
+        '<div class="pair-answer-ru">' + escapeHtml(it.subject) + " — " + escapeHtml(it.nounRu) +
+        " · " + escapeHtml(it.verbMt) + " — " + escapeHtml(it.verbRu) + "</div>";
+    }
+    if (mode === "agree") {
+      return '<div class="pair-answer">' + escapeHtml(it.phrase) + "</div>" +
+        '<div class="pair-answer-ru">' + escapeHtml(it.ru) + "</div>" +
+        '<div class="pair-answer-ru">' + escapeHtml(it.subject) + " — " + GENDER_LABEL[it.gender] +
+        " · прилаг. " + escapeHtml(it.adjForm) + " · глаг. " + escapeHtml(it.verbForm) + "</div>";
+    }
+    if (mode === "plural") {
+      return '<div class="pair-answer">' + escapeHtml(it.noun) + " → " + escapeHtml(it.definite) + "</div>" +
+        '<div class="pair-answer-ru">' + escapeHtml(it.nounRu) + " (" + GENDER_LABEL[it.gender] +
+        ") · мн. ч. " + escapeHtml(it.plural) + "</div>";
+    }
+    return '<div class="pair-answer">' + escapeHtml(it.prep) + " + " + escapeHtml(it.subject) +
+      " → " + escapeHtml(it.fused) + "</div>" +
+      '<div class="pair-answer-ru">' + escapeHtml(it.nounRu) + " · " + escapeHtml(it.meaning) + "</div>";
+  }
+
+  function fmNext() {
+    fmIndex++;
+    if (fmIndex < fmPool.length) { fmShow(); return; }
+    fmBypass = false;
+    fmBuild();
   }
 
   /* ---------- alphabet ---------- */
@@ -1166,8 +1326,10 @@
       ["Освоено (коробки 4–5)", String(learned)],
       ["Всего ответов", String(totalOk + totalNo)],
       ["Точность", acc + "%"],
-      ["Сочетаний", String(PAIRS.length)],
-      ["Новых сочетаний сегодня", introducedPairsToday() + (pairLimit() ? " из " + pairLimit() : "")]
+      ["Упражнений на формы", String(PAIRS.length + (FORMS.agreement || []).length +
+        (FORMS.plural || []).length + (FORMS.prep || []).length)],
+      ["Новых форм сегодня", fmIntroduced("agree") + fmIntroduced("plural") + fmIntroduced("prep") +
+        fmIntroduced("pair") + (fmLimit() ? " из " + (fmLimit() * 4) : "")]
     ];
     $("p-stats").innerHTML = cards.map(function (c) {
       return '<div class="stat"><div class="stat-value">' + escapeHtml(c[1]) +
@@ -1236,7 +1398,7 @@
     // вкладку, и очередь слов должна быть уже построена.
     initWords();
     initSentences();
-    initPairs();
+    fmInit();
     initAlphabet();
     initProgress();
     initKeys();

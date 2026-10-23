@@ -26,6 +26,7 @@ FILES=(
   data/ipa.js
   data/links.js
   data/pairs.js
+  data/forms.js
 )
 
 cd "$REPO"

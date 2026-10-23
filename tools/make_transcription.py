@@ -29,7 +29,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SOURCES = ["data/words.js", "data/sentences.js"]
 # phrases of the noun+verb exercise live under a "phrase" key
-PHRASE_SOURCES = ["data/pairs.js"]
+PHRASE_SOURCES = ["data/pairs.js", "data/forms.js"]
 TARGET = "data/ipa.js"
 
 # Longest match first: digraphs and letters with diacritics come before letters.
