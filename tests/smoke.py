@@ -269,9 +269,28 @@ def main():
         check("an incomplete answer is rejected", page.inner_text("#pr-feedback"),
               predicate=lambda s: "все три" in s)
 
-        # deliberately wrong answer on every row
-        for row in ("#pr-gender", "#pr-form", "#pr-ru"):
-            page.locator(row + " .opt").first.click()
+        # deliberately wrong answer on every row (options are shuffled,
+        # so pick an option whose value differs from the correct one)
+        answers = page.evaluate("""() => {
+          const subject = document.getElementById('pr-noun').textContent;
+          const verbMt = document.getElementById('pr-verb').textContent;
+          const p = window.PAIRS.find(x => x.subject === subject && x.verbMt === verbMt);
+          const wrong = (sel, correct) => {
+            const els = [...document.querySelectorAll(sel + ' .opt')];
+            const el = els.find(e => e.dataset.val !== correct);
+            return el ? el.dataset.val : null;
+          };
+          return {
+            gender: wrong('#pr-gender', p.gender),
+            form: wrong('#pr-form', p.form),
+            ru: wrong('#pr-ru', p.ru),
+          };
+        }""")
+        check("a wrong option exists on every row",
+              [v for v in answers.values() if v is None], [])
+        page.locator('#pr-gender .opt[data-val="%s"]' % answers["gender"]).click()
+        page.locator('#pr-form .opt[data-val="%s"]' % answers["form"]).click()
+        page.locator('#pr-ru .opt[data-val="%s"]' % answers["ru"]).click()
         page.click("#pr-check")
         check("a wrong answer is reported", page.inner_text("#pr-feedback"),
               predicate=lambda s: s.startswith("Неверно") or s == "Разбор ниже")

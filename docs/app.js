@@ -284,26 +284,6 @@
       .trim();
   }
 
-  var malteseVoice = null;
-  function pickVoice() {
-    if (!("speechSynthesis" in window)) return;
-    var voices = window.speechSynthesis.getVoices() || [];
-    malteseVoice = voices.find(function (v) { return /^mt([-_]|$)/i.test(v.lang); }) || null;
-  }
-
-  function speak(text) {
-    if (!("speechSynthesis" in window)) { toast("Синтез речи не поддерживается"); return; }
-    if (!text) return;
-    if (!malteseVoice) pickVoice();
-    if (!malteseVoice) { toast("Мальтийский голос (mt) не найден в системе"); return; }
-    var u = new SpeechSynthesisUtterance(text);
-    u.voice = malteseVoice;
-    u.lang = malteseVoice.lang;
-    u.rate = 0.9;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(u);
-  }
-
   function fillTopicSelect(sel, arr) {
     if (!sel) return;
     var seen = [];
@@ -355,10 +335,6 @@
     $("w-show").addEventListener("click", revealWord);
     $("w-no").addEventListener("click", function () { answerWord(false); });
     $("w-yes").addEventListener("click", function () { answerWord(true); });
-    $("w-speak").addEventListener("click", function () {
-      var w = wPool[wIndex];
-      if (w) speak(w.mt);
-    });
     $("w-examples-toggle").checked = showExamples;
     $("w-examples-toggle").addEventListener("change", function (e) {
       showExamples = e.target.checked;
@@ -437,7 +413,6 @@
     if (!w) {
       card.hidden = true;
       $("w-actions").hidden = true;
-      $("w-speak-row").hidden = true;
       done.hidden = false;
 
       var pool = WORDS.filter(function (x) { return wTopic === "all" || x.topic === wTopic; });
@@ -465,7 +440,6 @@
     card.hidden = false;
     done.hidden = true;
     $("w-actions").hidden = false;
-    $("w-speak-row").hidden = false;
     wRevealed = false;
 
     var front = wDir === "mt-ru" ? w.mt : w.ru;
@@ -572,9 +546,6 @@
     $("s-check").addEventListener("click", checkSentence);
     $("s-reveal").addEventListener("click", revealSentence);
     $("s-again").addEventListener("click", showSentence);
-    $("s-speak").addEventListener("click", function () {
-      if (sPool[sIndex]) speak(sPool[sIndex].mt);
-    });
     $("s-yes").addEventListener("click", function () { gradeSentence(true); });
     $("s-no").addEventListener("click", function () { gradeSentence(false); });
     $("s-limit").value = String(sentLimit());
@@ -669,7 +640,6 @@
       $("s-prompt").hidden = true;
       $("s-work").hidden = true;
       $("s-actions").hidden = true;
-      $("s-speak-row").hidden = true;
       $("s-done").hidden = false;
       sBypass = false;
 
@@ -711,7 +681,6 @@
     $("s-prompt").hidden = false;
     $("s-work").hidden = false;
     $("s-actions").hidden = false;
-    $("s-speak-row").hidden = false;
     sRevealed = false;
 
     var linked = linkedOf(s);
@@ -941,10 +910,6 @@
     $("pr-reveal").addEventListener("click", revealPair);
     $("pr-next").addEventListener("click", nextPair);
     $("pr-bypass").addEventListener("click", function () { xBypass = true; buildPairPool(); });
-    $("pr-speak").addEventListener("click", function () {
-      var p = xPool[xIndex];
-      if (p) speak(p.phrase);
-    });
     $("pr-quiz").addEventListener("click", onPairOption);
     buildPairPool();
   }
@@ -983,7 +948,6 @@
       card.hidden = true;
       $("pr-quiz").hidden = true;
       $("pr-actions").hidden = true;
-      $("pr-speak-row").hidden = true;
       $("pr-done").hidden = false;
       $("pr-done-text").textContent = pairLimit()
         ? "Новых сочетаний сегодня: " + introducedPairsToday() + " из " + pairLimit() +
@@ -998,7 +962,6 @@
     $("pr-done").hidden = true;
     $("pr-quiz").hidden = false;
     $("pr-actions").hidden = false;
-    $("pr-speak-row").hidden = false;
     xState = "ask";
     xPicked = { gender: null, form: null, ru: null };
 
@@ -1156,17 +1119,12 @@
   function initAlphabet() {
     var grid = $("alpha-grid");
     grid.innerHTML = ALPHABET.map(function (row) {
-      return '<button class="alpha-cell" type="button" data-say="' + escapeHtml(row[2].split(" — ")[0]) + '">' +
+      return '<button class="alpha-cell" type="button">' +
         '<span class="alpha-letter">' + escapeHtml(row[0]) + "</span>" +
         '<span class="alpha-sound">' + escapeHtml(row[1]) + "</span>" +
         '<span class="alpha-ex">' + escapeHtml(row[2]) + "</span>" +
         "</button>";
     }).join("");
-    grid.addEventListener("click", function (e) {
-      var b = e.target.closest(".alpha-cell");
-      if (!b) return;
-      speak(b.dataset.say);
-    });
     renderSpecialKeys($("copy-kbd"), function (ch) { copyText(ch); });
   }
 
@@ -1274,8 +1232,6 @@
 
   function init() {
     loadState();
-    pickVoice();
-    if ("speechSynthesis" in window) window.speechSynthesis.onvoiceschanged = pickVoice;
     // Секции инициализируются до initTabs: selectTab рендерит активную
     // вкладку, и очередь слов должна быть уже построена.
     initWords();

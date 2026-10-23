@@ -346,8 +346,6 @@ textarea { width: 100%; resize: vertical; min-height: 64px; }
 
 .grade { display: flex; gap: 10px; }
 
-.speak-row { margin-top: 12px; }
-
 .prompt {
   background: var(--panel);
   border: 1px solid var(--line);
