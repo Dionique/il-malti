@@ -35,6 +35,7 @@ const FILES = {
   "/data/links.js": { type: "text/javascript; charset=utf-8", cache: "no-cache" },
   "/data/pairs.js": { type: "text/javascript; charset=utf-8", cache: "no-cache" },
   "/data/forms.js": { type: "text/javascript; charset=utf-8", cache: "no-cache" },
+  "/data/blanks.js": { type: "text/javascript; charset=utf-8", cache: "no-cache" },
 };
 
 const ALIASES = { "/": "/index.html" };

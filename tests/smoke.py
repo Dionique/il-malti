@@ -481,6 +481,100 @@ def main():
               page.locator("#s-diff").is_hidden(), True)
         page.select_option("#s-limit", "5")
 
+        # --- «Заполнить пропуски»: форма в живом предложении ---
+        page.evaluate("() => localStorage.clear()")
+        page.reload()
+        page.click('.tab[data-tab="sentences"]')
+        check("предложений четыре режима",
+              page.locator("#s-mode option").count(), 4)
+        page.select_option("#s-mode", "blanks")
+        check("режим пропусков виден", page.locator("#s-blanks").is_hidden(), False)
+        check("в подписи сказано определить лицо", page.inner_text("#s-prompt-label"),
+              predicate=lambda s: "лицо" in s)
+
+        data = page.evaluate("""() => {
+              const sent = document.getElementById('s-ru').textContent;
+              const it = window.BLANKS.find(x => x.sent.replace(/\\{(\\d+)\\}/g, '_____') === sent);
+              if (!it) return null;
+              return {
+                blanks: it.blanks.length,
+                answers: it.blanks.map(b => window.BLANK_FORMS[b.hint][b.key]),
+                ru: it.ru,
+                full: it.full
+              };
+            }""")
+        check("упражнение найдено в данных", data is not None, True)
+        check("в предложении столько же пропусков",
+              page.locator("#s-ru .blank-slot").count(), data["blanks"])
+        check("на каждый пропуск своя строка вариантов",
+              page.locator("#s-blank-rows .quiz-options").count(), data["blanks"])
+        check("у каждого пропуска три варианта", page.evaluate("""() =>
+              [...document.querySelectorAll('#s-blank-rows .quiz-options')]
+                .every(r => r.querySelectorAll('.opt').length === 3)"""), True)
+        check("варианты внутри пропуска не повторяются", page.evaluate("""() =>
+              [...document.querySelectorAll('#s-blank-rows .quiz-options')]
+                .every(r => { const v = [...r.querySelectorAll('.opt')].map(o => o.dataset.value);
+                              return new Set(v).size === v.length; })"""), True)
+        check("верный вариант есть среди предложенных", page.evaluate("""(answers) =>
+              [...document.querySelectorAll('#s-blank-rows .quiz-options')]
+                .every((r, i) => [...r.querySelectorAll('.opt')]
+                  .some(o => o.dataset.value === answers[i]))""", data["answers"]), True)
+        check("подсказка о лице в вопросе НЕ показана", page.inner_text("#s-blank-rows"),
+              predicate=lambda s: "л." not in s and "м. род" not in s)
+
+        page.click("#s-check")
+        check("незаполненные пропуски не принимаются", page.inner_text("#s-feedback"),
+              predicate=lambda s: "Заполни все пропуски" in s)
+
+        # один пропуск неверный
+        page.evaluate("""(answers) => {
+            const rows = [...document.querySelectorAll('#s-blank-rows .quiz-options')];
+            rows.forEach((r, i) => {
+              const pick = i === 0
+                ? [...r.querySelectorAll('.opt')].find(o => o.dataset.value !== answers[i])
+                : [...r.querySelectorAll('.opt')].find(o => o.dataset.value === answers[i]);
+              pick.click();
+            });
+          }""", data["answers"])
+        page.click("#s-check")
+        check("неверный ответ посчитан по пропускам", page.inner_text("#s-feedback"),
+              predicate=lambda s: s.startswith("Неверно: пропусков с ошибкой — 1 из"))
+        check("верные варианты подсвечены", page.locator("#s-blank-rows .opt.ok").count(),
+              data["blanks"])
+        check("неверный вариант зачёркнут", page.locator("#s-blank-rows .opt.bad").count(), 1)
+        check("пропуски в предложении подсвечены",
+              page.locator("#s-ru .blank-slot.ok").count() + page.locator("#s-ru .blank-slot.bad").count(),
+              data["blanks"])
+        answer_text = page.inner_text("#s-blank-answer")
+        check("разбор показывает полную фразу", answer_text, predicate=lambda s: data["full"] in s)
+        check("разбор показывает перевод", answer_text, predicate=lambda s: data["ru"] in s)
+        check("разбор объясняет лицо", answer_text,
+              predicate=lambda s: "л. ед. ч." in s or "л. мн. ч." in s or "м. род" in s)
+        check("разбор даёт транскрипцию", page.inner_text("#s-translit"),
+              predicate=lambda s: "[" in s)
+
+        # верный ответ уходит сам
+        before = page.inner_text("#s-counter").split("·")[0]
+        page.click("#s-next")
+        data2 = page.evaluate("""() => {
+              const sent = document.getElementById('s-ru').textContent;
+              const it = window.BLANKS.find(x => x.sent.replace(/\\{(\\d+)\\}/g, '_____') === sent);
+              return it ? it.blanks.map(b => window.BLANK_FORMS[b.hint][b.key]) : null;
+            }""")
+        page.evaluate("""(answers) => {
+            [...document.querySelectorAll('#s-blank-rows .quiz-options')].forEach((r, i) => {
+              [...r.querySelectorAll('.opt')].find(o => o.dataset.value === answers[i]).click();
+            });
+          }""", data2)
+        page.click("#s-check")
+        check("все верные ответы принимаются", page.inner_text("#s-feedback"), "Верно!")
+        page.wait_for_timeout(1300)
+        check("верный ответ уводит к следующей фразе",
+              page.inner_text("#s-counter").split("·")[0] != before, True)
+        check("на новой фразе пропуски снова пустые",
+              page.locator("#s-ru .blank-slot.ok").count() +
+              page.locator("#s-ru .blank-slot.bad").count(), 0)
+
         # --- alphabet ---        # --- alphabet ---
         page.click('.tab[data-tab="alphabet"]')
         check("alphabet cells", page.locator("#alpha-grid .alpha-cell").count(), 30)

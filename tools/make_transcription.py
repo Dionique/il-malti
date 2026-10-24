@@ -29,7 +29,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SOURCES = ["data/words.js", "data/sentences.js"]
 # phrases of the noun+verb exercise live under a "phrase" key
-PHRASE_SOURCES = ["data/pairs.js", "data/forms.js"]
+PHRASE_SOURCES = ["data/pairs.js", "data/forms.js", "data/blanks.js"]
 TARGET = "data/ipa.js"
 
 # Longest match first: digraphs and letters with diacritics come before letters.
@@ -247,7 +247,8 @@ def collect_phrases():
             continue
         with open(path, encoding="utf-8") as fh:
             text = fh.read()
-        for m in re.finditer(r'"phrase":\s*"((?:[^"\\]|\\.)*)"', text):
+        # ключ может быть в кавычках ("phrase") или без (full:)
+        for m in re.finditer(r'(?:"phrase"|"full"|full)\s*:\s*"((?:[^"\\]|\\.)*)"', text):
             value = m.group(1).replace('\\"', '"')
             if value not in seen:
                 seen.add(value)

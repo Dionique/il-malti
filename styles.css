@@ -431,6 +431,36 @@ textarea { width: 100%; resize: vertical; min-height: 64px; }
   font-weight: 500;
 }
 
+.blank-slot {
+  display: inline-block;
+  min-width: 84px;
+  padding: 0 8px;
+  border-bottom: 2px solid var(--accent);
+  text-align: center;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.blank-slot.ok { border-bottom-color: var(--good); color: var(--good); }
+.blank-slot.bad { border-bottom-color: var(--bad); color: var(--bad); text-decoration: line-through; }
+
+.blank-row { margin-top: 14px; }
+
+.blank-hint {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.blank-note {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--accent-soft);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--ink);
+}
+
 .choice-list { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 12px; }
 
 .opt-sentence {

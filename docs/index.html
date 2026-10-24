@@ -80,6 +80,7 @@
           <select id="s-mode">
             <option value="build">Собрать из слов</option>
             <option value="choice">Выбор перевода</option>
+            <option value="blanks">Заполнить пропуски</option>
             <option value="card">Карточка</option>
           </select>
         </label>
@@ -97,7 +98,7 @@
       <div class="counter" id="s-counter"></div>
 
       <div class="prompt" id="s-prompt">
-        <div class="prompt-label">Переведите на мальтийский:</div>
+        <div class="prompt-label" id="s-prompt-label">Переведите на мальтийский:</div>
         <div class="prompt-text" id="s-ru"></div>
         <div class="prompt-hint" id="s-hint"></div>
         <div id="s-known"></div>
@@ -120,6 +121,11 @@
 
         <div id="s-choice" hidden>
           <div class="choice-list" id="s-choice-list"></div>
+        </div>
+
+        <div id="s-blanks" hidden>
+          <div id="s-blank-rows"></div>
+          <div class="card-extra" id="s-blank-answer" hidden></div>
         </div>
 
         <div id="s-cardbox" hidden>
@@ -230,6 +236,7 @@
   <script src="data/links.js"></script>
   <script src="data/pairs.js"></script>
   <script src="data/forms.js"></script>
+  <script src="data/blanks.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

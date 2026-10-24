@@ -518,8 +518,21 @@
   var sPool = [], sIndex = 0, sTopic = "all", sMode = "build";
   var sTokens = [], sAnswer = [], sRevealed = false, sDone = false;
   var sBypass = false, sReviewAll = false, sLocked = 0, sUnlocked = 0;
+  var BLANKS = window.BLANKS || [];
+  var BLANK_FORMS = window.BLANK_FORMS || {};
+  var BLANK_LABELS = window.BLANK_LABELS || {};
+  var bPicked = {};
 
-  function sid(s) { return "s:" + s.mt; }
+  function sid(s) { return "s:" + (s.mt || s.full); }
+
+  function blankCorrect(b) {
+    var forms = BLANK_FORMS[b.hint] || {};
+    return forms[b.key];
+  }
+
+  function blankAccepted(b) {
+    return [blankCorrect(b)].concat(b.accept || []);
+  }
 
   function slink(s) { return SENTENCE_LINKS[s.mt] || { words: [], unknown: [] }; }
 
@@ -544,8 +557,14 @@
     $("s-topic").addEventListener("change", function (e) {
       sTopic = e.target.value; sBypass = false; sReviewAll = false; buildSentencePool();
     });
-    $("s-mode").addEventListener("change", function (e) { sMode = e.target.value; showSentence(); });
+    $("s-mode").addEventListener("change", function (e) {
+      sMode = e.target.value;
+      sBypass = false;
+      sReviewAll = false;
+      buildSentencePool();          // у каждого режима своя очередь
+    });
     $("s-choice-list").addEventListener("click", onChoiceClick);
+    $("s-blank-rows").addEventListener("click", onBlankOption);
     $("s-flip").addEventListener("click", function () {
       if (sMode === "card" && !sRevealed && !sDone) revealSentence();
     });
@@ -602,8 +621,30 @@
   }
 
   function buildSentencePool() {
-    var all = SENTENCES.filter(function (s) { return sTopic === "all" || s.topic === sTopic; });
     sIndex = 0;
+
+    // «Заполнить пропуски» — свой набор, гейт по знакомым словам к нему не применяется
+    if (sMode === "blanks") {
+      sLocked = 0;
+      sUnlocked = BLANKS.length;
+      if (sReviewAll) {
+        sPool = shuffle(BLANKS.slice());
+        showSentence();
+        return;
+      }
+      var bReviews = BLANKS.filter(function (x) {
+        var r = state.items[sid(x)];
+        return !!r && r.d <= dayNumber();
+      }).sort(function (a, b) { return state.items[sid(a)].d - state.items[sid(b)].d; });
+      var bNews = shuffle(BLANKS.filter(function (x) { return !hasRec(sid(x)); }));
+      var bAllowed = sBypass ? bNews.length : sentRemaining();
+      if (bAllowed !== Infinity) bNews = bNews.slice(0, bAllowed);
+      sPool = bReviews.concat(bNews);
+      showSentence();
+      return;
+    }
+
+    var all = SENTENCES.filter(function (s) { return sTopic === "all" || s.topic === sTopic; });
 
     var unlocked = all.filter(isUnlocked);
     sLocked = all.length - unlocked.length;
@@ -640,6 +681,7 @@
   }
 
   function showSentence() {
+    if (sMode === "blanks") { showBlank(); return; }
     var s = sPool[sIndex];
 
     if (!s) {
@@ -722,6 +764,7 @@
     $("s-build").hidden = !isBuild;
     $("s-choice").hidden = !isChoice;
     $("s-cardbox").hidden = !isCard;
+    $("s-blanks").hidden = true;
     $("s-check").hidden = !isBuild;
     $("s-reveal").textContent = isBuild ? "Подсказка (показать ответ)" : "Показать ответ";
 
@@ -788,6 +831,187 @@
     finishSentence(s, ok);
   }
 
+  // ---------- «Заполнить пропуски» ----------
+  // Лицо и число нужно определить по подлежащему самому: в вопросе подсказка
+  // о лице не показывается, она раскрывается только в разборе.
+
+  function blankOptions(b) {
+    var forms = BLANK_FORMS[b.hint] || {};
+    var correct = blankCorrect(b);
+    var rest = [];
+    Object.keys(forms).forEach(function (k) {
+      if (k === b.key) return;
+      var v = forms[k];
+      if (v === correct || rest.indexOf(v) !== -1) return;
+      rest.push(v);
+    });
+    return shuffle([correct].concat(shuffle(rest).slice(0, 2)));
+  }
+
+  function showBlank() {
+    var it = sPool[sIndex];
+
+    if (!it) {
+      $("s-prompt").hidden = true;
+      $("s-work").hidden = true;
+      $("s-actions").hidden = true;
+      $("s-done").hidden = false;
+      sBypass = false;
+      $("s-done").classList.remove("locked");
+      $("s-done-title").textContent = sReviewAll ? "Повторение завершено" : "На сегодня всё";
+      $("s-done-text").textContent = sReviewAll
+        ? "Пройдено: " + sPool.length + "."
+        : "Новых фраз сегодня: " + introducedSentToday() +
+          (sentLimit() ? " из " + sentLimit() : "") +
+          ". Следующее повторение: " + nextDueDate("s:") + ".";
+      $("s-counter").textContent = "";
+      sReviewAll = false;
+      return;
+    }
+
+    $("s-done").hidden = true;
+    $("s-prompt").hidden = false;
+    $("s-work").hidden = false;
+    $("s-actions").hidden = false;
+    sRevealed = false;
+    sDone = false;
+    bPicked = {};
+
+    $("s-prompt-label").textContent = "Определи лицо по подлежащему и заполни пропуски:";
+    $("s-ru").innerHTML = it.sent.replace(/\{(\d+)\}/g, function (_, i) {
+      return '<span class="blank-slot" data-i="' + i + '">_____</span>';
+    });
+    $("s-hint").textContent = "Тема: " + (it.note || "форма в предложении");
+    $("s-known").innerHTML = "";
+
+    $("s-blank-rows").innerHTML = it.blanks.map(function (b, i) {
+      return '<div class="blank-row"><div class="blank-hint">' + (i + 1) + ". (" +
+        escapeHtml(b.hint) + ')</div><div class="quiz-options" data-blank="' + i + '">' +
+        blankOptions(b).map(function (v) {
+          return '<button class="opt" data-value="' + escapeHtml(v) + '">' +
+            escapeHtml(v) + "</button>";
+        }).join("") + "</div></div>";
+    }).join("");
+
+    $("s-feedback").textContent = "";
+    $("s-feedback").className = "feedback";
+    $("s-blank-answer").hidden = true;
+    $("s-blank-answer").innerHTML = "";
+    renderTranslit($("s-translit"), "");
+    $("s-check").hidden = false;
+    $("s-reveal").hidden = false;
+
+    var parts = ["Фраза " + (sIndex + 1) + " из " + sPool.length];
+    if (sentLimit()) parts.push("новых сегодня: " + introducedSentToday() + "/" + sentLimit());
+    if (sBypass) parts.push("сверх лимита");
+    $("s-counter").textContent = parts.join(" · ");
+
+    $("s-build").hidden = true;
+    $("s-choice").hidden = true;
+    $("s-cardbox").hidden = true;
+    $("s-blanks").hidden = false;
+  }
+
+  function onBlankOption(e) {
+    var btn = e.target.closest(".opt");
+    if (!btn || sMode !== "blanks" || sDone) return;
+    var row = btn.parentNode;
+    var i = row.dataset.blank;
+    bPicked[i] = btn.dataset.value;
+    Array.prototype.forEach.call(row.querySelectorAll(".opt"), function (o) {
+      o.classList.toggle("picked", o === btn);
+    });
+    var slot = $("s-ru").querySelector('.blank-slot[data-i="' + i + '"]');
+    if (slot) slot.textContent = btn.dataset.value;
+  }
+
+  function blankPickedValues(it) {
+    return it.blanks.map(function (_, i) { return bPicked[i]; });
+  }
+
+  function markBlanks(it) {
+    it.blanks.forEach(function (b, i) {
+      var accepted = blankAccepted(b);
+      var ok = accepted.indexOf(bPicked[i]) !== -1;
+      var row = $("s-blank-rows").querySelector('.quiz-options[data-blank="' + i + '"]');
+      if (row) {
+        Array.prototype.forEach.call(row.querySelectorAll(".opt"), function (o) {
+          o.classList.remove("ok", "bad");
+          if (o.dataset.value === blankCorrect(b)) o.classList.add("ok");
+          else if (o.classList.contains("picked")) o.classList.add("bad");
+        });
+      }
+      var slot = $("s-ru").querySelector('.blank-slot[data-i="' + i + '"]');
+      if (slot) {
+        slot.classList.remove("ok", "bad");
+        slot.classList.add(ok ? "ok" : "bad");
+      }
+    });
+  }
+
+  function blanksFilled(it) {
+    return it.blanks.every(function (_, i) { return bPicked[i] != null; });
+  }
+
+  function checkBlanks() {
+    var it = sPool[sIndex];
+    if (!it || sDone) return;
+    if (!blanksFilled(it)) {
+      $("s-feedback").textContent = "Заполни все пропуски (" + it.blanks.length + ")";
+      $("s-feedback").className = "feedback neutral";
+      return;
+    }
+    var wrong = it.blanks.filter(function (b, i) {
+      return blankAccepted(b).indexOf(bPicked[i]) === -1;
+    }).length;
+    markBlanks(it);
+    finishBlank(it, wrong === 0, wrong);
+  }
+
+  function revealBlanks() {
+    var it = sPool[sIndex];
+    if (!it || sDone) return;
+    it.blanks.forEach(function (b, i) {
+      bPicked[i] = blankCorrect(b);
+      var row = $("s-blank-rows").querySelector('.quiz-options[data-blank="' + i + '"]');
+      if (row) {
+        Array.prototype.forEach.call(row.querySelectorAll(".opt"), function (o) {
+          o.classList.toggle("picked", o.dataset.value === bPicked[i]);
+        });
+      }
+      var slot = $("s-ru").querySelector('.blank-slot[data-i="' + i + '"]');
+      if (slot) slot.textContent = bPicked[i];
+    });
+    markBlanks(it);
+    finishBlank(it, false, null, true);
+  }
+
+  function finishBlank(it, ok, wrongCount, revealed) {
+    sDone = true;
+    $("s-check").hidden = true;
+    $("s-reveal").hidden = true;
+    $("s-feedback").textContent = ok ? "Верно!"
+      : (revealed ? "Разбор" : "Неверно: пропусков с ошибкой — " + wrongCount + " из " + it.blanks.length);
+    $("s-feedback").className = "feedback " + (ok ? "good" : "bad");
+
+    $("s-blank-answer").innerHTML =
+      '<div class="pair-answer">' + escapeHtml(it.full) + "</div>" +
+      '<div class="pair-answer-ru">' + escapeHtml(it.ru) + "</div>" +
+      '<div class="pair-answer-ru">' + it.blanks.map(function (b) {
+        return escapeHtml(b.hint) + " → <b>" + escapeHtml(blankCorrect(b)) + "</b> (" +
+          escapeHtml(BLANK_LABELS[b.key] || b.key) + ")" +
+          (b.accept ? ", также допустимо: " + escapeHtml(b.accept.join(", ")) : "");
+      }).join("<br>") + "</div>" +
+      (it.note ? '<div class="blank-note">' + escapeHtml(it.note) + "</div>" : "");
+    $("s-blank-answer").hidden = false;
+    renderTranslit($("s-translit"), it.full);
+
+    grade(sid(it), "sent", ok);
+    if (ok) {
+      window.setTimeout(function () { if (sPool[sIndex] === it) nextSentence(); }, 900);
+    }
+  }
+
   function renderBuild() {
     var chips = $("s-chips");
     var ans = $("s-answer");
@@ -834,6 +1058,7 @@
   }
 
   function checkSentence() {
+    if (sMode === "blanks") { checkBlanks(); return; }
     var s = sPool[sIndex];
     if (!s || sDone) return;
     var user = sAnswer.map(function (i) { return sTokens[i].clean; }).join(" ");
@@ -843,6 +1068,7 @@
   }
 
   function revealSentence() {
+    if (sMode === "blanks") { revealBlanks(); return; }
     var s = sPool[sIndex];
     if (!s || sRevealed || sDone) return;
     sRevealed = true;
