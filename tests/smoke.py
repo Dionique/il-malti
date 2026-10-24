@@ -72,7 +72,9 @@ def main():
         check("title", page.title(), predicate=lambda t: "Malti" in t)
 
         # --- words ---
-        check("words topic options", page.locator("#w-topic option").count(), 18)
+        # число тем считаем из данных, чтобы тест не устаревал при их добавлении
+        topic_count = page.evaluate("() => new Set(window.WORDS.map(w => w.topic)).size")
+        check("words topic options", page.locator("#w-topic option").count(), topic_count + 1)
         check("default new-words-per-day limit", page.input_value("#w-limit"), "10")
         check("first queue is capped by the daily limit", page.inner_text("#w-counter"),
               predicate=lambda s: "В очереди: 10" in s and "новых сегодня: 0/10" in s)
@@ -589,7 +591,7 @@ def main():
         page.click('.tab[data-tab="progress"]')
         check("stat cards", page.locator("#p-stats .stat").count(), 6)
         check("box rows", page.locator("#p-boxes .box-row").count(), 7)
-        check("progress rows per exercise set", page.locator("#p-sets .set-row").count(), 6)
+        check("progress rows per exercise set", page.locator("#p-sets .set-row").count(), 7)
         check("answer rows per mode", page.locator("#p-kinds .set-row").count(), 4)
         check("day rows", page.locator("#p-days .box-row").count(), 7)
 
@@ -652,7 +654,7 @@ def main():
         # (3) у каждого набора упражнений виден свой прогресс
         sets = [x.replace("\n", " ") for x in page.evaluate(
             "() => [...document.querySelectorAll('#p-sets .set-row')].map(r => r.innerText)")]
-        check("прогресс показан по всем наборам", len(sets), 6)
+        check("прогресс показан по всем наборам", len(sets), 7)
         check("у наборов видны начатые и «далее»",
               all("начато:" in x and "далее:" in x and "к повторению:" in x for x in sets), True)
 

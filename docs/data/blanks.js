@@ -1,174 +1,149 @@
-// Упражнение «Imla l-vojt» — заполнить пропуски нужной формой.
-//
-// Идея: дано предложение с пропусками и подсказка в скобках (словарная форма).
-// Лицо и число нужно определить по подлежащему самому — в вопросе подсказка
-// о лице НЕ показывается, она раскрывается только в разборе.
-//
-// BLANK_FORMS — выверенные вручную парадигмы. Ключи:
-//   1s 2s 3m 3f 1p 2p 3p  — глагол, имперфетт (несовершенное время)
-//   m f pl                — существительное / прилагательное
-//
-// Первые восемь предложений и их ответы взяты из учебного задания, поэтому
-// формы в них — эталон. Остальные формы выведены по стандартным правилам
-// (префиксы n-/t-/j-, ассимиляция t- с шипящими, i- вместо j- у удвоенных
-// корней) и требуют проверки носителем.
-
 window.BLANK_FORMS = {
-  // ---- глаголы из задания ----
-  libes:   { "1s": "nilbes",   "2s": "tilbes",    "3m": "jilbes",    "3f": "tilbes",    "1p": "nilbsu",    "2p": "tilbsu",    "3p": "jilbsu" },
-  ħareġ:   { "1s": "noħroġ",   "2s": "toħroġ",    "3m": "joħroġ",    "3f": "toħroġ",    "1p": "noħorġu",   "2p": "toħorġu",   "3p": "joħorġu" },
-  żamm:    { "1s": "nżomm",    "2s": "żżomm",     "3m": "jżomm",     "3f": "żżomm",     "1p": "nżommu",    "2p": "żżommu",    "3p": "jżommu" },
-  ħadem:   { "1s": "naħdem",   "2s": "taħdem",    "3m": "jaħdem",    "3f": "taħdem",    "1p": "naħdmu",    "2p": "taħdmu",    "3p": "jaħdmu" },
-  sarraf:  { "1s": "nsarraf",  "2s": "ssarraf",   "3m": "jsarraf",   "3f": "ssarraf",   "1p": "nsarrfu",   "2p": "ssarrfu",   "3p": "jsarrfu" },
-  xtara:   { "1s": "nixtri",   "2s": "tixtri",    "3m": "jixtri",    "3f": "tixtri",    "1p": "nixtru",    "2p": "tixtru",    "3p": "jixtru" },
-  daħal:   { "1s": "nidħol",   "2s": "tidħol",    "3m": "jidħol",    "3f": "tidħol",    "1p": "nidħlu",    "2p": "tidħlu",    "3p": "jidħlu" },
-  waqaf:   { "1s": "nieqaf",   "2s": "tieqaf",    "3m": "jieqaf",    "3f": "tieqaf",    "1p": "nieqfu",    "2p": "tieqfu",    "3p": "jieqfu" },
-  xarrab:  { "1s": "nxarrab",  "2s": "xxarrab",   "3m": "jxarrab",   "3f": "xxarrab",   "1p": "nxarrbu",   "2p": "xxarrbu",   "3p": "jxarrbu" },
-  ħasel:   { "1s": "naħsel",   "2s": "taħsel",    "3m": "jaħsel",    "3f": "taħsel",    "1p": "naħslu",    "2p": "taħslu",    "3p": "jaħslu" },
-  mess:    { "1s": "nmiss",    "2s": "tmiss",     "3m": "jmiss",     "3f": "tmiss",     "1p": "nmissu",    "2p": "tmissu",    "3p": "jmissu" },
-  ħassar:  { "1s": "nħassar",  "2s": "tħassar",   "3m": "iħassar",   "3f": "tħassar",   "1p": "nħassru",   "2p": "tħassru",   "3p": "iħassru" },
-  wasal:   { "1s": "nasal",    "2s": "tasal",     "3m": "jasal",     "3f": "tasal",     "1p": "naslu",     "2p": "taslu",     "3p": "jaslu" },
-  ħabb:    { "1s": "nħobb",    "2s": "tħobb",     "3m": "iħobb",     "3f": "tħobb",     "1p": "nħobbu",    "2p": "tħobbu",    "3p": "iħobbu" },
-  ħabbat:  { "1s": "nħabbat",  "2s": "tħabbat",   "3m": "iħabbat",   "3f": "tħabbat",   "1p": "nħabbtu",   "2p": "tħabbtu",   "3p": "iħabbtu" },
-
-  // ---- существительные и прилагательные ----
-  kamra:   { "sg_art": "il-kamra",   "pl_art": "il-kmamar",   "sg": "kamra",   "pl": "kmamar" },
-  karozza: { "sg_art": "il-karozza", "pl_art": "il-karozzi",  "sg": "karozza", "pl": "karozzi" },
-  tifel:   { "sg_art": "it-tifel",   "pl_art": "it-tfal",     "sg": "tifel",   "pl": "tfal" },
-  belt:    { "sg_art": "il-belt",    "pl_art": "il-bliet",    "sg": "belt",    "pl": "bliet" },
-  ilma:    { "sg_art": "l-ilma",     "sg": "ilma" },
-  kbir:    { "m": "kbir",  "f": "kbira",  "pl": "kbar" },
-  żgħir:   { "m": "żgħir", "f": "żgħira", "pl": "żgħar" },
-  nadif:   { "m": "nadif", "f": "nadifa", "pl": "nodfa" },
-  ġdid:    { "m": "ġdid",  "f": "ġdida",  "pl": "ġodda" }
+  "libes": {"1s": "nilbes", "2s": "tilbes", "3m": "jilbes", "3f": "tilbes", "1p": "nilbsu", "2p": "tilbsu", "3p": "jilbsu"},
+  "ħareġ": {"1s": "noħroġ", "2s": "toħroġ", "3m": "joħroġ", "3f": "toħroġ", "1p": "noħorġu", "2p": "toħorġu", "3p": "joħorġu"},
+  "żamm": {"1s": "nżomm", "2s": "żżomm", "3m": "jżomm", "3f": "żżomm", "1p": "nżommu", "2p": "żżommu", "3p": "jżommu"},
+  "ħadem": {"1s": "naħdem", "2s": "taħdem", "3m": "jaħdem", "3f": "taħdem", "1p": "naħdmu", "2p": "taħdmu", "3p": "jaħdmu"},
+  "sarraf": {"1s": "nsarraf", "2s": "ssarraf", "3m": "jsarraf", "3f": "ssarraf", "1p": "nsarrfu", "2p": "ssarrfu", "3p": "jsarrfu"},
+  "xtara": {"1s": "nixtri", "2s": "tixtri", "3m": "jixtri", "3f": "tixtri", "1p": "nixtru", "2p": "tixtru", "3p": "jixtru"},
+  "daħal": {"1s": "nidħol", "2s": "tidħol", "3m": "jidħol", "3f": "tidħol", "1p": "nidħlu", "2p": "tidħlu", "3p": "jidħlu"},
+  "waqaf": {"1s": "nieqaf", "2s": "tieqaf", "3m": "jieqaf", "3f": "tieqaf", "1p": "nieqfu", "2p": "tieqfu", "3p": "jieqfu"},
+  "xarrab": {"1s": "nxarrab", "2s": "xxarrab", "3m": "jxarrab", "3f": "xxarrab", "1p": "nxarrbu", "2p": "xxarrbu", "3p": "jxarrbu"},
+  "ħasel": {"1s": "naħsel", "2s": "taħsel", "3m": "jaħsel", "3f": "taħsel", "1p": "naħslu", "2p": "taħslu", "3p": "jaħslu"},
+  "mess": {"1s": "nmiss", "2s": "tmiss", "3m": "jmiss", "3f": "tmiss", "1p": "nmissu", "2p": "tmissu", "3p": "jmissu"},
+  "ħassar": {"1s": "nħassar", "2s": "tħassar", "3m": "iħassar", "3f": "tħassar", "1p": "nħassru", "2p": "tħassru", "3p": "iħassru"},
+  "wasal": {"1s": "nasal", "2s": "tasal", "3m": "jasal", "3f": "tasal", "1p": "naslu", "2p": "taslu", "3p": "jaslu"},
+  "ħabb": {"1s": "nħobb", "2s": "tħobb", "3m": "iħobb", "3f": "tħobb", "1p": "nħobbu", "2p": "tħobbu", "3p": "iħobbu"},
+  "ħabbat": {"1s": "nħabbat", "2s": "tħabbat", "3m": "iħabbat", "3f": "tħabbat", "1p": "nħabbtu", "2p": "tħabbtu", "3p": "iħabbtu"},
+  "kamra": {"sg_art": "il-kamra", "pl_art": "il-kmamar", "sg": "kamra", "pl": "kmamar"},
+  "karozza": {"sg_art": "il-karozza", "pl_art": "il-karozzi", "sg": "karozza", "pl": "karozzi"},
+  "tifel": {"sg_art": "it-tifel", "pl_art": "it-tfal", "sg": "tifel", "pl": "tfal"},
+  "belt": {"sg_art": "il-belt", "pl_art": "il-bliet", "sg": "belt", "pl": "bliet"},
+  "ilma": {"sg_art": "l-ilma", "sg": "ilma"},
+  "kbir": {"m": "kbir", "f": "kbira", "pl": "kbar"},
+  "żgħir": {"m": "żgħir", "f": "żgħira", "pl": "żgħar"},
+  "nadif": {"m": "nadif", "f": "nadifa", "pl": "nodfa"},
+  "ġdid": {"m": "ġdid", "f": "ġdida", "pl": "ġodda"},
 };
 
-// Подписи для разбора: что это была за форма.
-window.BLANK_LABELS = {
-  "1s": "1 л. ед. ч. (jien)",
-  "2s": "2 л. ед. ч. (inti)",
-  "3m": "3 л. ед. ч., м. р. (hu)",
-  "3f": "3 л. ед. ч., ж. р. (hi)",
-  "1p": "1 л. мн. ч. (aħna)",
-  "2p": "2 л. мн. ч. (intom)",
-  "3p": "3 л. мн. ч. (huma)",
-  "sg_art": "ед. ч. с артиклем",
-  "pl_art": "мн. ч. с артиклем",
-  "sg": "ед. ч.",
-  "pl": "мн. ч.",
-  "m": "м. род",
-  "f": "ж. род"
-};
+window.BLANK_LABELS = {"1s": "1 л. ед. ч. (jien)", "2s": "2 л. ед. ч. (inti)", "3m": "3 л. ед. ч., м. р. (hu)", "3f": "3 л. ед. ч., ж. р. (hi)", "1p": "1 л. мн. ч. (aħna)", "2p": "2 л. мн. ч. (intom)", "3p": "3 л. мн. ч. (huma)", "sg_art": "ед. ч. с артиклем", "pl_art": "мн. ч. с артиклем", "sg": "ед. ч.", "pl": "мн. ч.", "m": "м. род", "f": "ж. род"};
 
-// accept — другие допустимые варианты той же формы (в скобках в задании).
 window.BLANKS = [
-  {
-    sent: "Oħti {0} sew qabel {1} tixtri.",
-    blanks: [
-      { hint: "libes", key: "3f" },
-      { hint: "ħareġ", key: "3f" }
-    ],
-    full: "Oħti tilbes sew qabel toħroġ tixtri.",
-    ru: "Моя сестра хорошо одевается, прежде чем выйти за покупками."
-  },
-  {
-    sent: "Inti {0} il-kwiet u {1} bil-għaqal.",
-    blanks: [
-      { hint: "żamm", key: "2s", accept: ["iżżomm"] },
-      { hint: "ħadem", key: "2s" }
-    ],
-    full: "Inti żżomm il-kwiet u taħdem bil-għaqal.",
-    ru: "Ты сохраняешь спокойствие и работаешь с умом."
-  },
-  {
-    sent: "Aħna {0} l-flus biex {1} li jkollna bżonn.",
-    blanks: [
-      { hint: "sarraf", key: "1p", accept: ["insarrfu"] },
-      { hint: "xtara", key: "1p" }
-    ],
-    full: "Aħna nsarrfu l-flus biex nixtru li jkollna bżonn.",
-    ru: "Мы обмениваем деньги, чтобы купить то, что нам нужно."
-  },
-  {
-    sent: "Kif it-tfal {0} l-iskola {1} mil-logħob.",
-    blanks: [
-      { hint: "daħal", key: "3p" },
-      { hint: "waqaf", key: "3p" }
-    ],
-    full: "Kif it-tfal jidħlu l-iskola jieqfu mil-logħob.",
-    ru: "Как только дети входят в школу, они бросают игру."
-  },
-  {
-    sent: "Ommi {0} xi ħwejjeġ qabel {1} bil-magna.",
-    blanks: [
-      { hint: "xarrab", key: "3f", accept: ["ixxarrab"] },
-      { hint: "ħasel", key: "3f" }
-    ],
-    full: "Ommi xxarrab xi ħwejjeġ qabel taħsel bil-magna.",
-    ru: "Мама замачивает вещи, прежде чем стирать в машине."
-  },
-  {
-    sent: "Jekk id-dubbiena {0} il-frott, dan {1}.",
-    blanks: [
-      { hint: "mess", key: "3f" },
-      { hint: "ħassar", key: "3m" }
-    ],
-    full: "Jekk id-dubbiena tmiss il-frott, dan iħassar.",
-    ru: "Если муха коснётся фрукта, он испортится."
-  },
-  {
-    sent: "Ħafna mit-turisti li {0} Malta fis-sajf {1} x-xemx.",
-    blanks: [
-      { hint: "wasal", key: "3p" },
-      { hint: "ħabb", key: "3p" }
-    ],
-    full: "Ħafna mit-turisti li jaslu Malta fis-sajf iħobbu x-xemx.",
-    ru: "Многие туристы, приезжающие на Мальту летом, любят солнце."
-  },
-  {
-    sent: "Qabel {0} xi mkien, {1} il-bieb.",
-    blanks: [
-      { hint: "daħal", key: "2s" },
-      { hint: "ħabbat", key: "2s" }
-    ],
-    full: "Qabel tidħol xi mkien, tħabbat il-bieb.",
-    ru: "Прежде чем войти куда-либо, постучи в дверь."
-  },
-
-  // ---- формы существительных и прилагательных в предложении ----
-  {
-    sent: "Id-dar hija {0}.",
-    blanks: [{ hint: "kbir", key: "f" }],
-    full: "Id-dar hija kbira.",
-    ru: "Дом большой.",
-    note: "прилагательное согласуется с существительным: dar — женского рода"
-  },
-  {
-    sent: "{0} hija żgħira.",
-    blanks: [{ hint: "kamra", key: "sg_art" }],
-    full: "Il-kamra hija żgħira.",
-    ru: "Комната маленькая.",
-    note: "определённый артикль перед комнатой"
-  },
-  {
-    sent: "Dawn huma {0}.",
-    blanks: [{ hint: "tifel", key: "pl" }],
-    full: "Dawn huma tfal.",
-    ru: "Это дети.",
-    note: "dawn — множественное число, значит и существительное во множественном"
-  },
-  {
-    sent: "It-toroq huma {0}.",
-    blanks: [{ hint: "nadif", key: "pl" }],
-    full: "It-toroq huma nodfa.",
-    ru: "Улицы чистые.",
-    note: "прилагательное во множественном числе"
-  },
-  {
-    sent: "{0} hija ġdida.",
-    blanks: [{ hint: "karozza", key: "sg_art" }],
-    full: "Il-karozza hija ġdida.",
-    ru: "Машина новая.",
-    note: "артикль перед karozza"
-  }
+  {"sent": "Oħti {0} sew qabel {1} tixtri.", "blanks": [{"hint": "libes", "key": "3f"}, {"hint": "ħareġ", "key": "3f"}], "full": "Oħti tilbes sew qabel toħroġ tixtri.", "ru": "Моя сестра хорошо одевается, прежде чем выйти за покупками.", "src": "workbook"},
+  {"sent": "Inti {0} il-kwiet u {1} bil-għaqal.", "blanks": [{"hint": "żamm", "key": "2s", "accept": ["iżżomm"]}, {"hint": "ħadem", "key": "2s"}], "full": "Inti żżomm il-kwiet u taħdem bil-għaqal.", "ru": "Ты сохраняешь спокойствие и работаешь с умом.", "src": "workbook"},
+  {"sent": "Aħna {0} l-flus biex {1} li jkollna bżonn.", "blanks": [{"hint": "sarraf", "key": "1p", "accept": ["insarrfu"]}, {"hint": "xtara", "key": "1p"}], "full": "Aħna nsarrfu l-flus biex nixtru li jkollna bżonn.", "ru": "Мы обмениваем деньги, чтобы купить то, что нам нужно.", "src": "workbook"},
+  {"sent": "Kif it-tfal {0} l-iskola {1} mil-logħob.", "blanks": [{"hint": "daħal", "key": "3p"}, {"hint": "waqaf", "key": "3p"}], "full": "Kif it-tfal jidħlu l-iskola jieqfu mil-logħob.", "ru": "Как только дети входят в школу, они бросают игру.", "src": "workbook"},
+  {"sent": "Ommi {0} xi ħwejjeġ qabel {1} bil-magna.", "blanks": [{"hint": "xarrab", "key": "3f", "accept": ["ixxarrab"]}, {"hint": "ħasel", "key": "3f"}], "full": "Ommi xxarrab xi ħwejjeġ qabel taħsel bil-magna.", "ru": "Мама замачивает вещи, прежде чем стирать в машине.", "src": "workbook"},
+  {"sent": "Jekk id-dubbiena {0} il-frott, dan {1}.", "blanks": [{"hint": "mess", "key": "3f"}, {"hint": "ħassar", "key": "3m"}], "full": "Jekk id-dubbiena tmiss il-frott, dan iħassar.", "ru": "Если муха коснётся фрукта, он испортится.", "src": "workbook"},
+  {"sent": "Ħafna mit-turisti li {0} Malta fis-sajf {1} x-xemx.", "blanks": [{"hint": "wasal", "key": "3p"}, {"hint": "ħabb", "key": "3p"}], "full": "Ħafna mit-turisti li jaslu Malta fis-sajf iħobbu x-xemx.", "ru": "Многие туристы, приезжающие на Мальту летом, любят солнце.", "src": "workbook"},
+  {"sent": "Qabel {0} xi mkien, {1} il-bieb.", "blanks": [{"hint": "daħal", "key": "2s"}, {"hint": "ħabbat", "key": "2s"}], "full": "Qabel tidħol xi mkien, tħabbat il-bieb.", "ru": "Прежде чем войти куда-либо, постучи в дверь.", "src": "workbook"},
+  {"sent": "Id-dar hija {0}.", "blanks": [{"hint": "kbir", "key": "f"}], "full": "Id-dar hija kbira.", "ru": "Дом большой.", "src": "workbook", "note": "прилагательное согласуется с существительным: dar — женского рода"},
+  {"sent": "{0} hija żgħira.", "blanks": [{"hint": "kamra", "key": "sg_art"}], "full": "Il-kamra hija żgħira.", "ru": "Комната маленькая.", "src": "workbook", "note": "определённый артикль перед комнатой"},
+  {"sent": "Dawn huma {0}.", "blanks": [{"hint": "tifel", "key": "pl"}], "full": "Dawn huma tfal.", "ru": "Это дети.", "src": "workbook", "note": "dawn — множественное число, значит и существительное во множественном"},
+  {"sent": "It-toroq huma {0}.", "blanks": [{"hint": "nadif", "key": "pl"}], "full": "It-toroq huma nodfa.", "ru": "Улицы чистые.", "src": "workbook", "note": "прилагательное во множественном числе"},
+  {"sent": "{0} hija ġdida.", "blanks": [{"hint": "karozza", "key": "sg_art"}], "full": "Il-karozza hija ġdida.", "ru": "Машина новая.", "src": "workbook", "note": "артикль перед karozza"},
+  {"sent": "Jien {0} sew.", "blanks": [{"hint": "libes", "key": "1s"}], "full": "Jien nilbes sew.", "ru": "Я одеваюсь хорошо.", "src": "derived"},
+  {"sent": "Inti {0} sew.", "blanks": [{"hint": "libes", "key": "2s"}], "full": "Inti tilbes sew.", "ru": "Ты одеваешься хорошо.", "src": "derived"},
+  {"sent": "It-tifel {0} sew.", "blanks": [{"hint": "libes", "key": "3m"}], "full": "It-tifel jilbes sew.", "ru": "Мальчик одевается хорошо.", "src": "derived"},
+  {"sent": "Il-mara {0} sew.", "blanks": [{"hint": "libes", "key": "3f"}], "full": "Il-mara tilbes sew.", "ru": "Женщина одевается хорошо.", "src": "derived"},
+  {"sent": "Aħna {0} sew.", "blanks": [{"hint": "libes", "key": "1p"}], "full": "Aħna nilbsu sew.", "ru": "Мы одеваемся хорошо.", "src": "derived"},
+  {"sent": "Intom {0} sew.", "blanks": [{"hint": "libes", "key": "2p"}], "full": "Intom tilbsu sew.", "ru": "Вы одеваетесь хорошо.", "src": "derived"},
+  {"sent": "It-tfal {0} sew.", "blanks": [{"hint": "libes", "key": "3p"}], "full": "It-tfal jilbsu sew.", "ru": "Дети одеваются хорошо.", "src": "derived"},
+  {"sent": "Jien {0} id-dar.", "blanks": [{"hint": "ħareġ", "key": "1s"}], "full": "Jien noħroġ id-dar.", "ru": "Я выхожу из дома.", "src": "derived"},
+  {"sent": "Inti {0} id-dar.", "blanks": [{"hint": "ħareġ", "key": "2s"}], "full": "Inti toħroġ id-dar.", "ru": "Ты выходишь из дома.", "src": "derived"},
+  {"sent": "It-tifel {0} id-dar.", "blanks": [{"hint": "ħareġ", "key": "3m"}], "full": "It-tifel joħroġ id-dar.", "ru": "Мальчик выходит из дома.", "src": "derived"},
+  {"sent": "Il-mara {0} id-dar.", "blanks": [{"hint": "ħareġ", "key": "3f"}], "full": "Il-mara toħroġ id-dar.", "ru": "Женщина выходит из дома.", "src": "derived"},
+  {"sent": "Aħna {0} id-dar.", "blanks": [{"hint": "ħareġ", "key": "1p"}], "full": "Aħna noħorġu id-dar.", "ru": "Мы выходим из дома.", "src": "derived"},
+  {"sent": "Intom {0} id-dar.", "blanks": [{"hint": "ħareġ", "key": "2p"}], "full": "Intom toħorġu id-dar.", "ru": "Вы выходите из дома.", "src": "derived"},
+  {"sent": "It-tfal {0} id-dar.", "blanks": [{"hint": "ħareġ", "key": "3p"}], "full": "It-tfal joħorġu id-dar.", "ru": "Дети выходят из дома.", "src": "derived"},
+  {"sent": "Jien {0} il-ktieb.", "blanks": [{"hint": "żamm", "key": "1s"}], "full": "Jien nżomm il-ktieb.", "ru": "Я держу книгу.", "src": "derived"},
+  {"sent": "Inti {0} il-ktieb.", "blanks": [{"hint": "żamm", "key": "2s"}], "full": "Inti żżomm il-ktieb.", "ru": "Ты держишь книгу.", "src": "derived"},
+  {"sent": "It-tifel {0} il-ktieb.", "blanks": [{"hint": "żamm", "key": "3m"}], "full": "It-tifel jżomm il-ktieb.", "ru": "Мальчик держит книгу.", "src": "derived"},
+  {"sent": "Il-mara {0} il-ktieb.", "blanks": [{"hint": "żamm", "key": "3f"}], "full": "Il-mara żżomm il-ktieb.", "ru": "Женщина держит книгу.", "src": "derived"},
+  {"sent": "Aħna {0} il-ktieb.", "blanks": [{"hint": "żamm", "key": "1p"}], "full": "Aħna nżommu il-ktieb.", "ru": "Мы держим книгу.", "src": "derived"},
+  {"sent": "Intom {0} il-ktieb.", "blanks": [{"hint": "żamm", "key": "2p"}], "full": "Intom żżommu il-ktieb.", "ru": "Вы держите книгу.", "src": "derived"},
+  {"sent": "It-tfal {0} il-ktieb.", "blanks": [{"hint": "żamm", "key": "3p"}], "full": "It-tfal jżommu il-ktieb.", "ru": "Дети держат книгу.", "src": "derived"},
+  {"sent": "Jien {0} ħafna.", "blanks": [{"hint": "ħadem", "key": "1s"}], "full": "Jien naħdem ħafna.", "ru": "Я работаю много.", "src": "derived"},
+  {"sent": "Inti {0} ħafna.", "blanks": [{"hint": "ħadem", "key": "2s"}], "full": "Inti taħdem ħafna.", "ru": "Ты работаешь много.", "src": "derived"},
+  {"sent": "It-tifel {0} ħafna.", "blanks": [{"hint": "ħadem", "key": "3m"}], "full": "It-tifel jaħdem ħafna.", "ru": "Мальчик работает много.", "src": "derived"},
+  {"sent": "Il-mara {0} ħafna.", "blanks": [{"hint": "ħadem", "key": "3f"}], "full": "Il-mara taħdem ħafna.", "ru": "Женщина работает много.", "src": "derived"},
+  {"sent": "Aħna {0} ħafna.", "blanks": [{"hint": "ħadem", "key": "1p"}], "full": "Aħna naħdmu ħafna.", "ru": "Мы работаем много.", "src": "derived"},
+  {"sent": "Intom {0} ħafna.", "blanks": [{"hint": "ħadem", "key": "2p"}], "full": "Intom taħdmu ħafna.", "ru": "Вы работаете много.", "src": "derived"},
+  {"sent": "It-tfal {0} ħafna.", "blanks": [{"hint": "ħadem", "key": "3p"}], "full": "It-tfal jaħdmu ħafna.", "ru": "Дети работают много.", "src": "derived"},
+  {"sent": "Jien {0} il-flus.", "blanks": [{"hint": "sarraf", "key": "1s"}], "full": "Jien nsarraf il-flus.", "ru": "Я обмениваю деньги.", "src": "derived"},
+  {"sent": "Inti {0} il-flus.", "blanks": [{"hint": "sarraf", "key": "2s"}], "full": "Inti ssarraf il-flus.", "ru": "Ты обмениваешь деньги.", "src": "derived"},
+  {"sent": "It-tifel {0} il-flus.", "blanks": [{"hint": "sarraf", "key": "3m"}], "full": "It-tifel jsarraf il-flus.", "ru": "Мальчик обменивает деньги.", "src": "derived"},
+  {"sent": "Il-mara {0} il-flus.", "blanks": [{"hint": "sarraf", "key": "3f"}], "full": "Il-mara ssarraf il-flus.", "ru": "Женщина обменивает деньги.", "src": "derived"},
+  {"sent": "Aħna {0} il-flus.", "blanks": [{"hint": "sarraf", "key": "1p"}], "full": "Aħna nsarrfu il-flus.", "ru": "Мы обмениваем деньги.", "src": "derived"},
+  {"sent": "Intom {0} il-flus.", "blanks": [{"hint": "sarraf", "key": "2p"}], "full": "Intom ssarrfu il-flus.", "ru": "Вы обмениваете деньги.", "src": "derived"},
+  {"sent": "It-tfal {0} il-flus.", "blanks": [{"hint": "sarraf", "key": "3p"}], "full": "It-tfal jsarrfu il-flus.", "ru": "Дети обменивают деньги.", "src": "derived"},
+  {"sent": "Jien {0} il-ħobż.", "blanks": [{"hint": "xtara", "key": "1s"}], "full": "Jien nixtri il-ħobż.", "ru": "Я покупаю хлеб.", "src": "derived"},
+  {"sent": "Inti {0} il-ħobż.", "blanks": [{"hint": "xtara", "key": "2s"}], "full": "Inti tixtri il-ħobż.", "ru": "Ты покупаешь хлеб.", "src": "derived"},
+  {"sent": "It-tifel {0} il-ħobż.", "blanks": [{"hint": "xtara", "key": "3m"}], "full": "It-tifel jixtri il-ħobż.", "ru": "Мальчик покупает хлеб.", "src": "derived"},
+  {"sent": "Il-mara {0} il-ħobż.", "blanks": [{"hint": "xtara", "key": "3f"}], "full": "Il-mara tixtri il-ħobż.", "ru": "Женщина покупает хлеб.", "src": "derived"},
+  {"sent": "Aħna {0} il-ħobż.", "blanks": [{"hint": "xtara", "key": "1p"}], "full": "Aħna nixtru il-ħobż.", "ru": "Мы покупаем хлеб.", "src": "derived"},
+  {"sent": "Intom {0} il-ħobż.", "blanks": [{"hint": "xtara", "key": "2p"}], "full": "Intom tixtru il-ħobż.", "ru": "Вы покупаете хлеб.", "src": "derived"},
+  {"sent": "It-tfal {0} il-ħobż.", "blanks": [{"hint": "xtara", "key": "3p"}], "full": "It-tfal jixtru il-ħobż.", "ru": "Дети покупают хлеб.", "src": "derived"},
+  {"sent": "Jien {0} il-kamra.", "blanks": [{"hint": "daħal", "key": "1s"}], "full": "Jien nidħol il-kamra.", "ru": "Я вхожу в комнату.", "src": "derived"},
+  {"sent": "Inti {0} il-kamra.", "blanks": [{"hint": "daħal", "key": "2s"}], "full": "Inti tidħol il-kamra.", "ru": "Ты входишь в комнату.", "src": "derived"},
+  {"sent": "It-tifel {0} il-kamra.", "blanks": [{"hint": "daħal", "key": "3m"}], "full": "It-tifel jidħol il-kamra.", "ru": "Мальчик входит в комнату.", "src": "derived"},
+  {"sent": "Il-mara {0} il-kamra.", "blanks": [{"hint": "daħal", "key": "3f"}], "full": "Il-mara tidħol il-kamra.", "ru": "Женщина входит в комнату.", "src": "derived"},
+  {"sent": "Aħna {0} il-kamra.", "blanks": [{"hint": "daħal", "key": "1p"}], "full": "Aħna nidħlu il-kamra.", "ru": "Мы входим в комнату.", "src": "derived"},
+  {"sent": "Intom {0} il-kamra.", "blanks": [{"hint": "daħal", "key": "2p"}], "full": "Intom tidħlu il-kamra.", "ru": "Вы входите в комнату.", "src": "derived"},
+  {"sent": "It-tfal {0} il-kamra.", "blanks": [{"hint": "daħal", "key": "3p"}], "full": "It-tfal jidħlu il-kamra.", "ru": "Дети входят в комнату.", "src": "derived"},
+  {"sent": "Jien {0} hawn.", "blanks": [{"hint": "waqaf", "key": "1s"}], "full": "Jien nieqaf hawn.", "ru": "Я останавливаюсь здесь.", "src": "derived"},
+  {"sent": "Inti {0} hawn.", "blanks": [{"hint": "waqaf", "key": "2s"}], "full": "Inti tieqaf hawn.", "ru": "Ты останавливаешься здесь.", "src": "derived"},
+  {"sent": "It-tifel {0} hawn.", "blanks": [{"hint": "waqaf", "key": "3m"}], "full": "It-tifel jieqaf hawn.", "ru": "Мальчик останавливается здесь.", "src": "derived"},
+  {"sent": "Il-mara {0} hawn.", "blanks": [{"hint": "waqaf", "key": "3f"}], "full": "Il-mara tieqaf hawn.", "ru": "Женщина останавливается здесь.", "src": "derived"},
+  {"sent": "Aħna {0} hawn.", "blanks": [{"hint": "waqaf", "key": "1p"}], "full": "Aħna nieqfu hawn.", "ru": "Мы останавливаемся здесь.", "src": "derived"},
+  {"sent": "Intom {0} hawn.", "blanks": [{"hint": "waqaf", "key": "2p"}], "full": "Intom tieqfu hawn.", "ru": "Вы останавливаетесь здесь.", "src": "derived"},
+  {"sent": "It-tfal {0} hawn.", "blanks": [{"hint": "waqaf", "key": "3p"}], "full": "It-tfal jieqfu hawn.", "ru": "Дети останавливаются здесь.", "src": "derived"},
+  {"sent": "Jien {0} il-ħwejjeġ.", "blanks": [{"hint": "xarrab", "key": "1s"}], "full": "Jien nxarrab il-ħwejjeġ.", "ru": "Я мочу одежду.", "src": "derived"},
+  {"sent": "Inti {0} il-ħwejjeġ.", "blanks": [{"hint": "xarrab", "key": "2s"}], "full": "Inti xxarrab il-ħwejjeġ.", "ru": "Ты мочишь одежду.", "src": "derived"},
+  {"sent": "It-tifel {0} il-ħwejjeġ.", "blanks": [{"hint": "xarrab", "key": "3m"}], "full": "It-tifel jxarrab il-ħwejjeġ.", "ru": "Мальчик мочит одежду.", "src": "derived"},
+  {"sent": "Il-mara {0} il-ħwejjeġ.", "blanks": [{"hint": "xarrab", "key": "3f"}], "full": "Il-mara xxarrab il-ħwejjeġ.", "ru": "Женщина мочит одежду.", "src": "derived"},
+  {"sent": "Aħna {0} il-ħwejjeġ.", "blanks": [{"hint": "xarrab", "key": "1p"}], "full": "Aħna nxarrbu il-ħwejjeġ.", "ru": "Мы мочим одежду.", "src": "derived"},
+  {"sent": "Intom {0} il-ħwejjeġ.", "blanks": [{"hint": "xarrab", "key": "2p"}], "full": "Intom xxarrbu il-ħwejjeġ.", "ru": "Вы мочите одежду.", "src": "derived"},
+  {"sent": "It-tfal {0} il-ħwejjeġ.", "blanks": [{"hint": "xarrab", "key": "3p"}], "full": "It-tfal jxarrbu il-ħwejjeġ.", "ru": "Дети мочат одежду.", "src": "derived"},
+  {"sent": "Jien {0} il-karozza.", "blanks": [{"hint": "ħasel", "key": "1s"}], "full": "Jien naħsel il-karozza.", "ru": "Я мою машину.", "src": "derived"},
+  {"sent": "Inti {0} il-karozza.", "blanks": [{"hint": "ħasel", "key": "2s"}], "full": "Inti taħsel il-karozza.", "ru": "Ты моешь машину.", "src": "derived"},
+  {"sent": "It-tifel {0} il-karozza.", "blanks": [{"hint": "ħasel", "key": "3m"}], "full": "It-tifel jaħsel il-karozza.", "ru": "Мальчик моет машину.", "src": "derived"},
+  {"sent": "Il-mara {0} il-karozza.", "blanks": [{"hint": "ħasel", "key": "3f"}], "full": "Il-mara taħsel il-karozza.", "ru": "Женщина моет машину.", "src": "derived"},
+  {"sent": "Aħna {0} il-karozza.", "blanks": [{"hint": "ħasel", "key": "1p"}], "full": "Aħna naħslu il-karozza.", "ru": "Мы моем машину.", "src": "derived"},
+  {"sent": "Intom {0} il-karozza.", "blanks": [{"hint": "ħasel", "key": "2p"}], "full": "Intom taħslu il-karozza.", "ru": "Вы моете машину.", "src": "derived"},
+  {"sent": "It-tfal {0} il-karozza.", "blanks": [{"hint": "ħasel", "key": "3p"}], "full": "It-tfal jaħslu il-karozza.", "ru": "Дети моют машину.", "src": "derived"},
+  {"sent": "Jien {0} il-frott.", "blanks": [{"hint": "mess", "key": "1s"}], "full": "Jien nmiss il-frott.", "ru": "Я трогаю фрукты.", "src": "derived"},
+  {"sent": "Inti {0} il-frott.", "blanks": [{"hint": "mess", "key": "2s"}], "full": "Inti tmiss il-frott.", "ru": "Ты трогаешь фрукты.", "src": "derived"},
+  {"sent": "It-tifel {0} il-frott.", "blanks": [{"hint": "mess", "key": "3m"}], "full": "It-tifel jmiss il-frott.", "ru": "Мальчик трогает фрукты.", "src": "derived"},
+  {"sent": "Il-mara {0} il-frott.", "blanks": [{"hint": "mess", "key": "3f"}], "full": "Il-mara tmiss il-frott.", "ru": "Женщина трогает фрукты.", "src": "derived"},
+  {"sent": "Aħna {0} il-frott.", "blanks": [{"hint": "mess", "key": "1p"}], "full": "Aħna nmissu il-frott.", "ru": "Мы трогаем фрукты.", "src": "derived"},
+  {"sent": "Intom {0} il-frott.", "blanks": [{"hint": "mess", "key": "2p"}], "full": "Intom tmissu il-frott.", "ru": "Вы трогаете фрукты.", "src": "derived"},
+  {"sent": "It-tfal {0} il-frott.", "blanks": [{"hint": "mess", "key": "3p"}], "full": "It-tfal jmissu il-frott.", "ru": "Дети трогают фрукты.", "src": "derived"},
+  {"sent": "Jien {0} kollox.", "blanks": [{"hint": "ħassar", "key": "1s"}], "full": "Jien nħassar kollox.", "ru": "Я порчу всё.", "src": "derived"},
+  {"sent": "Inti {0} kollox.", "blanks": [{"hint": "ħassar", "key": "2s"}], "full": "Inti tħassar kollox.", "ru": "Ты портишь всё.", "src": "derived"},
+  {"sent": "It-tifel {0} kollox.", "blanks": [{"hint": "ħassar", "key": "3m"}], "full": "It-tifel iħassar kollox.", "ru": "Мальчик портит всё.", "src": "derived"},
+  {"sent": "Il-mara {0} kollox.", "blanks": [{"hint": "ħassar", "key": "3f"}], "full": "Il-mara tħassar kollox.", "ru": "Женщина портит всё.", "src": "derived"},
+  {"sent": "Aħna {0} kollox.", "blanks": [{"hint": "ħassar", "key": "1p"}], "full": "Aħna nħassru kollox.", "ru": "Мы портим всё.", "src": "derived"},
+  {"sent": "Intom {0} kollox.", "blanks": [{"hint": "ħassar", "key": "2p"}], "full": "Intom tħassru kollox.", "ru": "Вы портите всё.", "src": "derived"},
+  {"sent": "It-tfal {0} kollox.", "blanks": [{"hint": "ħassar", "key": "3p"}], "full": "It-tfal iħassru kollox.", "ru": "Дети портят всё.", "src": "derived"},
+  {"sent": "Jien {0} Malta.", "blanks": [{"hint": "wasal", "key": "1s"}], "full": "Jien nasal Malta.", "ru": "Я приезжаю на Мальту.", "src": "derived"},
+  {"sent": "Inti {0} Malta.", "blanks": [{"hint": "wasal", "key": "2s"}], "full": "Inti tasal Malta.", "ru": "Ты приезжаешь на Мальту.", "src": "derived"},
+  {"sent": "It-tifel {0} Malta.", "blanks": [{"hint": "wasal", "key": "3m"}], "full": "It-tifel jasal Malta.", "ru": "Мальчик приезжает на Мальту.", "src": "derived"},
+  {"sent": "Il-mara {0} Malta.", "blanks": [{"hint": "wasal", "key": "3f"}], "full": "Il-mara tasal Malta.", "ru": "Женщина приезжает на Мальту.", "src": "derived"},
+  {"sent": "Aħna {0} Malta.", "blanks": [{"hint": "wasal", "key": "1p"}], "full": "Aħna naslu Malta.", "ru": "Мы приезжаем на Мальту.", "src": "derived"},
+  {"sent": "Intom {0} Malta.", "blanks": [{"hint": "wasal", "key": "2p"}], "full": "Intom taslu Malta.", "ru": "Вы приезжаете на Мальту.", "src": "derived"},
+  {"sent": "It-tfal {0} Malta.", "blanks": [{"hint": "wasal", "key": "3p"}], "full": "It-tfal jaslu Malta.", "ru": "Дети приезжают на Мальту.", "src": "derived"},
+  {"sent": "Jien {0} il-Malti.", "blanks": [{"hint": "ħabb", "key": "1s"}], "full": "Jien nħobb il-Malti.", "ru": "Я люблю мальтийский.", "src": "derived"},
+  {"sent": "Inti {0} il-Malti.", "blanks": [{"hint": "ħabb", "key": "2s"}], "full": "Inti tħobb il-Malti.", "ru": "Ты любишь мальтийский.", "src": "derived"},
+  {"sent": "It-tifel {0} il-Malti.", "blanks": [{"hint": "ħabb", "key": "3m"}], "full": "It-tifel iħobb il-Malti.", "ru": "Мальчик любит мальтийский.", "src": "derived"},
+  {"sent": "Il-mara {0} il-Malti.", "blanks": [{"hint": "ħabb", "key": "3f"}], "full": "Il-mara tħobb il-Malti.", "ru": "Женщина любит мальтийский.", "src": "derived"},
+  {"sent": "Aħna {0} il-Malti.", "blanks": [{"hint": "ħabb", "key": "1p"}], "full": "Aħna nħobbu il-Malti.", "ru": "Мы любим мальтийский.", "src": "derived"},
+  {"sent": "Intom {0} il-Malti.", "blanks": [{"hint": "ħabb", "key": "2p"}], "full": "Intom tħobbu il-Malti.", "ru": "Вы любите мальтийский.", "src": "derived"},
+  {"sent": "It-tfal {0} il-Malti.", "blanks": [{"hint": "ħabb", "key": "3p"}], "full": "It-tfal iħobbu il-Malti.", "ru": "Дети любят мальтийский.", "src": "derived"},
+  {"sent": "Jien {0} il-bieb.", "blanks": [{"hint": "ħabbat", "key": "1s"}], "full": "Jien nħabbat il-bieb.", "ru": "Я стучу в дверь.", "src": "derived"},
+  {"sent": "Inti {0} il-bieb.", "blanks": [{"hint": "ħabbat", "key": "2s"}], "full": "Inti tħabbat il-bieb.", "ru": "Ты стучишь в дверь.", "src": "derived"},
+  {"sent": "It-tifel {0} il-bieb.", "blanks": [{"hint": "ħabbat", "key": "3m"}], "full": "It-tifel iħabbat il-bieb.", "ru": "Мальчик стучит в дверь.", "src": "derived"},
+  {"sent": "Il-mara {0} il-bieb.", "blanks": [{"hint": "ħabbat", "key": "3f"}], "full": "Il-mara tħabbat il-bieb.", "ru": "Женщина стучит в дверь.", "src": "derived"},
+  {"sent": "Aħna {0} il-bieb.", "blanks": [{"hint": "ħabbat", "key": "1p"}], "full": "Aħna nħabbtu il-bieb.", "ru": "Мы стучим в дверь.", "src": "derived"},
+  {"sent": "Intom {0} il-bieb.", "blanks": [{"hint": "ħabbat", "key": "2p"}], "full": "Intom tħabbtu il-bieb.", "ru": "Вы стучите в дверь.", "src": "derived"},
+  {"sent": "It-tfal {0} il-bieb.", "blanks": [{"hint": "ħabbat", "key": "3p"}], "full": "It-tfal iħabbtu il-bieb.", "ru": "Дети стучат в дверь.", "src": "derived"},
 ];

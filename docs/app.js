@@ -41,6 +41,7 @@
     travel: "Транспорт",
     verb: "Глаголы",
     prep: "Предлоги",
+    office: "Офис и работа",
     greet: "Приветствия",
     present: "Настоящее время",
     have: "Иметь (għandi)",
@@ -523,7 +524,19 @@
   var BLANK_LABELS = window.BLANK_LABELS || {};
   var bPicked = {};
 
-  function sid(s) { return "s:" + (s.mt || s.full); }
+  function sid(s) { return "s:" + s.mt; }
+
+  // У пропусков свой счётчик и свой дневной бюджет: иначе они конкурируют
+  // с остальными режимами предложений за одни и те же «новые в день».
+  function bid(it) { return "b:" + it.full; }
+
+  function blanksIntroducedToday() { return countIntroduced("b:"); }
+
+  function blanksRemaining() {
+    var limit = sentLimit();
+    if (!limit) return Infinity;
+    return Math.max(0, limit - blanksIntroducedToday());
+  }
 
   function blankCorrect(b) {
     var forms = BLANK_FORMS[b.hint] || {};
@@ -633,11 +646,11 @@
         return;
       }
       var bReviews = BLANKS.filter(function (x) {
-        var r = state.items[sid(x)];
+        var r = state.items[bid(x)];
         return !!r && r.d <= dayNumber();
-      }).sort(function (a, b) { return state.items[sid(a)].d - state.items[sid(b)].d; });
-      var bNews = shuffle(BLANKS.filter(function (x) { return !hasRec(sid(x)); }));
-      var bAllowed = sBypass ? bNews.length : sentRemaining();
+      }).sort(function (a, b) { return state.items[bid(a)].d - state.items[bid(b)].d; });
+      var bNews = shuffle(BLANKS.filter(function (x) { return !hasRec(bid(x)); }));
+      var bAllowed = sBypass ? bNews.length : blanksRemaining();
       if (bAllowed !== Infinity) bNews = bNews.slice(0, bAllowed);
       sPool = bReviews.concat(bNews);
       showSentence();
@@ -861,9 +874,10 @@
       $("s-done-title").textContent = sReviewAll ? "Повторение завершено" : "На сегодня всё";
       $("s-done-text").textContent = sReviewAll
         ? "Пройдено: " + sPool.length + "."
-        : "Новых фраз сегодня: " + introducedSentToday() +
+        : "Новых сегодня: " + blanksIntroducedToday() +
           (sentLimit() ? " из " + sentLimit() : "") +
-          ". Следующее повторение: " + nextDueDate("s:") + ".";
+          ". Всего упражнений: " + BLANKS.length +
+          ". Следующее повторение: " + nextDueDate("b:") + ".";
       $("s-counter").textContent = "";
       sReviewAll = false;
       return;
@@ -901,8 +915,8 @@
     $("s-check").hidden = false;
     $("s-reveal").hidden = false;
 
-    var parts = ["Фраза " + (sIndex + 1) + " из " + sPool.length];
-    if (sentLimit()) parts.push("новых сегодня: " + introducedSentToday() + "/" + sentLimit());
+    var parts = ["Упражнение " + (sIndex + 1) + " из " + sPool.length];
+    if (sentLimit()) parts.push("новых сегодня: " + blanksIntroducedToday() + "/" + sentLimit());
     if (sBypass) parts.push("сверх лимита");
     $("s-counter").textContent = parts.join(" · ");
 
@@ -1006,7 +1020,7 @@
     $("s-blank-answer").hidden = false;
     renderTranslit($("s-translit"), it.full);
 
-    grade(sid(it), "sent", ok);
+    grade(bid(it), "sent", ok);
     if (ok) {
       window.setTimeout(function () { if (sPool[sIndex] === it) nextSentence(); }, 900);
     }
@@ -1616,6 +1630,8 @@
     var out = [];
     out.push({ name: "Слова", s: srsSummary("w:", WORDS.map(wid)) });
     out.push({ name: "Предложения", s: srsSummary("s:", SENTENCES.map(sid)) });
+    out.push({ name: "Заполнить пропуски",
+               s: srsSummary("b:", BLANKS.map(function (x) { return bid(x); })) });
     Object.keys(FM_MODES).forEach(function (k) {
       var m = FM_MODES[k];
       out.push({ name: m.label, s: srsSummary(m.prefix, m.list.map(function (x) { return x.uid; })) });
