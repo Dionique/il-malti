@@ -519,8 +519,10 @@ def main():
               [...document.querySelectorAll('#s-blank-rows .quiz-options')]
                 .every((r, i) => [...r.querySelectorAll('.opt')]
                   .some(o => o.dataset.value === answers[i]))""", data["answers"]), True)
-        check("подсказка о лице в вопросе НЕ показана", page.inner_text("#s-blank-rows"),
-              predicate=lambda s: "л." not in s and "м. род" not in s)
+        # подписи берём из данных, чтобы не зависеть от того, глагол это или существительное
+        labels = page.evaluate("() => Object.values(window.BLANK_LABELS)")
+        check("подсказка о форме в вопросе НЕ показана",
+              any(l in page.inner_text("#s-blank-rows") for l in labels), False)
 
         page.click("#s-check")
         check("незаполненные пропуски не принимаются", page.inner_text("#s-feedback"),
@@ -548,8 +550,10 @@ def main():
         answer_text = page.inner_text("#s-blank-answer")
         check("разбор показывает полную фразу", answer_text, predicate=lambda s: data["full"] in s)
         check("разбор показывает перевод", answer_text, predicate=lambda s: data["ru"] in s)
-        check("разбор объясняет лицо", answer_text,
-              predicate=lambda s: "л. ед. ч." in s or "л. мн. ч." in s or "м. род" in s)
+        check("разбор называет форму", answer_text,
+              predicate=lambda s: any(l in s for l in labels))
+        check("разбор объясняет каждую подстановку", answer_text,
+              predicate=lambda s: s.count("→") >= data["blanks"])
         check("разбор даёт транскрипцию", page.inner_text("#s-translit"),
               predicate=lambda s: "[" in s)
 
