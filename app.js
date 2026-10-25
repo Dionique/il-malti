@@ -582,6 +582,7 @@
       if (sMode === "card" && !sRevealed && !sDone) revealSentence();
     });
     $("s-next").addEventListener("click", nextSentence);
+    $("s-forward").addEventListener("click", nextSentence);
     $("s-check").addEventListener("click", checkSentence);
     $("s-reveal").addEventListener("click", revealSentence);
     $("s-again").addEventListener("click", showSentence);
@@ -768,6 +769,7 @@
     $("s-feedback").className = "feedback";
     $("s-reveal").hidden = false;
     $("s-grade").hidden = true;
+    $("s-forward").hidden = true;
     renderTranslit($("s-translit"), "");
 
     var isBuild = sMode === "build";
@@ -914,6 +916,8 @@
     renderTranslit($("s-translit"), "");
     $("s-check").hidden = false;
     $("s-reveal").hidden = false;
+    $("s-forward").hidden = true;
+    $("s-reveal").textContent = "Показать ответ";
 
     var parts = ["Упражнение " + (sIndex + 1) + " из " + sPool.length];
     if (sentLimit()) parts.push("новых сегодня: " + blanksIntroducedToday() + "/" + sentLimit());
@@ -1004,6 +1008,7 @@
     sDone = true;
     $("s-check").hidden = true;
     $("s-reveal").hidden = true;
+    $("s-forward").hidden = false;
     $("s-feedback").textContent = ok ? "Верно!"
       : (revealed ? "Разбор" : "Неверно: пропусков с ошибкой — " + wrongCount + " из " + it.blanks.length);
     $("s-feedback").className = "feedback " + (ok ? "good" : "bad");
@@ -1064,6 +1069,7 @@
     $("s-known").innerHTML = renderNewWords(unfamiliarOf(s), true);
     $("s-reveal").hidden = true;
     $("s-check").hidden = true;
+    $("s-forward").hidden = false;
     $("s-grade").hidden = true;
     grade(sid(s), "sent", ok);
     if (ok) {

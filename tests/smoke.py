@@ -219,6 +219,8 @@ def main():
               page.locator("#s-check").is_hidden(), True)
         check("the sentence transcription is shown", page.inner_text("#s-translit"),
               predicate=lambda s: "[" in s)
+        check("после неверного выбора есть кнопка «Дальше»",
+              page.locator("#s-forward").is_hidden(), False)
 
         # верный выбор уходит дальше сам
         page.click("#s-next")
@@ -558,10 +560,18 @@ def main():
               predicate=lambda s: s.count("→") >= data["blanks"])
         check("разбор даёт транскрипцию", page.inner_text("#s-translit"),
               predicate=lambda s: "[" in s)
+        check("после ответа есть кнопка «Дальше»",
+              page.locator("#s-forward").is_hidden(), False)
 
         # верный ответ уходит сам
         before = page.inner_text("#s-counter").split("·")[0]
-        page.click("#s-next")
+        page.click("#s-forward")
+        check("«Дальше» уводит к следующей фразе",
+              page.inner_text("#s-counter").split("·")[0] != before, True)
+        check("на новой фразе «Дальше» снова скрыта",
+              page.locator("#s-forward").is_hidden(), True)
+        check("подсказка в режиме пропусков подписана внятно",
+              page.inner_text("#s-reveal"), "Показать ответ")
         data2 = page.evaluate("""() => {
               const sent = document.getElementById('s-ru').textContent;
               const it = window.BLANKS.find(x => x.sent.replace(/\\{(\\d+)\\}/g, '_____') === sent);
