@@ -440,4 +440,20 @@ window.WORDS = [
   { mt: "domanda",       ru: "вопрос, заявка",        topic: "office", pos: "noun", g: "f", art: "id-domanda",         pl: "domandi" },
   { mt: "risposta",      ru: "ответ",                 topic: "office", pos: "noun", g: "f", art: "ir-risposta",        pl: "risposti" },
   { mt: "għan",          ru: "цель",                  topic: "office", pos: "noun", g: "m", art: "l-għan",             pl: "għanijiet" },
+
+  // ---- добавлено для живых фраз (корпус Tatoeba) ----
+  { mt: "tojlit",     ru: "туалет",        topic: "house",  pos: "noun", g: "m", art: "it-tojlit",     pl: "tojlits" },
+  { mt: "tazza",      ru: "стакан, чашка", topic: "food",   pos: "noun", g: "f", art: "it-tazza",      pl: "tazzi" },
+  { mt: "flixkun",    ru: "бутылка",       topic: "food",   pos: "noun", g: "m", art: "il-flixkun",    pl: "fliexken" },
+  { mt: "eżami",      ru: "экзамен",       topic: "office", pos: "noun", g: "m", art: "l-eżami",       pl: "eżamijiet" },
+  { mt: "eżerċizzju", ru: "упражнение",    topic: "office", pos: "noun", g: "m", art: "l-eżerċizzju",  pl: "eżerċizzji" },
+  { mt: "vojt",       ru: "пустой",        topic: "adj",    pos: "adj",  forms: "vojta" },
+  { mt: "mudlam",     ru: "тёмный",        topic: "adj",    pos: "adj",  forms: "mudlama" },
+  { mt: "rqiq",       ru: "худой, тонкий", topic: "adj",    pos: "adj",  forms: "rqiqa" },
+  { mt: "Taljan",     ru: "итальянский",   topic: "base",   pos: "adj" },
+  { mt: "xi",         ru: "что, какой-то", topic: "qword" },
+  { mt: "biex",       ru: "чтобы",         topic: "base" },
+  { mt: "tard",       ru: "поздно",        topic: "time" },
+  { mt: "alcohol",    ru: "алкоголь",      topic: "food",   pos: "noun", g: "m", art: "l-alcohol" },
+  { mt: "naddaf",     ru: "убирать",       topic: "verb",   pos: "verb", forms: "tnaddaf, jnaddaf", pres: "nnaddaf, tnaddaf, jnaddaf" },
 ];

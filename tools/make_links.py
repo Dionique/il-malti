@@ -36,8 +36,9 @@ ALIASES = {
     "nixrob": "xorob", "tixrob": "xorob",
     "niekol": "kiel", "tiekol": "kiel",
     "nara": "ra", "tara": "ra", "narak": "ra", "rajt": "ra", "rajna": "ra",
+    "naqra": "qara",
     "naħdem": "ħadem", "taħdem": "ħadem", "jaħdem": "ħadem",
-    "nitkellem": "tkellem", "tkellmu": "tkellem",
+    "nitkellem": "tkellem", "titkellem": "tkellem", "tkellmu": "tkellem",
     "nitgħallmu": "tgħallem", "titgħallem": "tgħallem",
     "nistudja": "tgħallem",
     "jgħix": "għex", "jgħixu": "għex",
@@ -68,6 +69,14 @@ ALIASES = {
     "huwa": "hu", "hija": "hi",
     # наречия и служебные слова
     "illum": "llum",
+    # варианты из живых фраз
+    "vera": "veru",
+    "żewġ": "tnejn",
+    "immur": "mar",
+    "qtates": "qattus",
+    "għaxart": "għaxra",
+    "nixrobx": "xorob",
+    "tixrobx": "xorob",
     # Названия дней. Оставляем только формы, которые иначе свяжутся не с тем
     # словом: «t-tlieta» похоже на число «tlieta». Для «l-ġimgħa» алиаса НЕТ:
     # это омоним, «l-ġimgħa» — и пятница, и определённая форма слова «неделя».
