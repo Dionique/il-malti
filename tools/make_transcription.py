@@ -27,7 +27,7 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SOURCES = ["data/words.js", "data/sentences.js"]
+SOURCES = ["data/words.js", "data/sentences.js", "data/dialogues.js"]
 # phrases of the noun+verb exercise live under a "phrase" key
 PHRASE_SOURCES = ["data/pairs.js", "data/forms.js", "data/blanks.js"]
 TARGET = "data/ipa.js"

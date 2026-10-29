@@ -13,6 +13,7 @@
       <button class="tab" data-tab="words">Слова</button>
       <button class="tab" data-tab="sentences">Предложения</button>
       <button class="tab" data-tab="forms">Формы</button>
+      <button class="tab" data-tab="dialogues">Диалоги</button>
       <button class="tab" data-tab="alphabet">Алфавит</button>
       <button class="tab" data-tab="progress">Прогресс</button>
     </nav>
@@ -196,6 +197,32 @@
       </div>
     </section>
 
+    <section id="view-dialogues" class="view" hidden>
+      <div class="bar">
+        <label>Диалог <select id="dg-pick"></select></label>
+        <label>Режим
+          <select id="dg-mode">
+            <option value="read">Чтение с переводом</option>
+            <option value="drill">Перевод по репликам</option>
+            <option value="reply">Выбор ответа</option>
+          </select>
+        </label>
+        <label class="toggle" id="dg-hide-wrap"><input type="checkbox" id="dg-hide"> Скрыть перевод</label>
+      </div>
+      <div class="counter" id="dg-counter"></div>
+      <div class="blank-note" id="dg-note" hidden></div>
+      <div id="dg-body"></div>
+      <div class="actions" id="dg-actions" hidden>
+        <button id="dg-reveal" class="btn ghost">Показать перевод</button>
+        <button id="dg-forward" class="btn" hidden>Дальше</button>
+        <div id="dg-grade" class="grade" hidden>
+          <button id="dg-no" class="btn bad">Не знаю</button>
+          <button id="dg-yes" class="btn good">Знаю</button>
+        </div>
+        <span id="dg-feedback" class="feedback"></span>
+      </div>
+    </section>
+
     <section id="view-alphabet" class="view" hidden>
       <p class="hint">Мальтийский алфавит: 30 букв, латиница с диакритикой. Рядом с буквой — как она читается и пример слова.</p>
       <div class="alpha-grid" id="alpha-grid"></div>
@@ -238,6 +265,7 @@
   <script src="data/pairs.js"></script>
   <script src="data/forms.js"></script>
   <script src="data/blanks.js"></script>
+  <script src="data/dialogues.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

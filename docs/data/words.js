@@ -456,4 +456,24 @@ window.WORDS = [
   { mt: "tard",       ru: "поздно",        topic: "time" },
   { mt: "alcohol",    ru: "алкоголь",      topic: "food",   pos: "noun", g: "m", art: "l-alcohol" },
   { mt: "naddaf",     ru: "убирать",       topic: "verb",   pos: "verb", forms: "tnaddaf, jnaddaf", pres: "nnaddaf, tnaddaf, jnaddaf" },
+  // ---- добавлено для диалогов ----
+  { mt: "sular",   ru: "этаж",     topic: "house", pos: "noun", g: "m", art: "is-sular",   pl: "sulari" },
+  { mt: "uġigħ",   ru: "боль",     topic: "body",  pos: "noun", g: "m", art: "l-uġigħ" },
+  { mt: "allo",    ru: "алло",     topic: "base" },
+  { mt: "strieħ",  ru: "отдыхать", topic: "verb",  pos: "verb", forms: "jistrieħ, tistrieħ", pres: "nistrieħ, tistrieħ, jistrieħ" },
+  // ---- добавлено для второй партии диалогов ----
+  { mt: "awguri",    ru: "поздравляю",       topic: "base",  },
+  { mt: "ajma",      ru: "ой, надо же",      topic: "base",  },
+  { mt: "piċir",     ru: "приятно (при знакомстве)", topic: "greet" },
+  { mt: "rigal",     ru: "подарок",          topic: "things", pos: "noun", g: "m", art: "ir-rigal",    pl: "rigali" },
+  { mt: "stazzjon",  ru: "станция",          topic: "travel", pos: "noun", g: "m", art: "l-istazzjon", pl: "stazzjonijiet" },
+  { mt: "pillola",   ru: "таблетка",         topic: "body",   pos: "noun", g: "f", art: "il-pillola",  pl: "pilloli" },
+  { mt: "għen",      ru: "помогать",         topic: "verb",   pos: "verb", forms: "tgħin, jgħin", pres: "ngħin, tgħin, jgħin" },
+  // ---- добавлено для диалогов (вторая проверка) ----
+  { mt: "jekk",   ru: "если",     topic: "base" },
+  { mt: "u",      ru: "и",        topic: "base" },
+  { mt: "bżonn",  ru: "нужда",    topic: "base", pos: "noun", g: "m", art: "il-bżonn" },
+  { mt: "temp",   ru: "погода",   topic: "weather", pos: "noun", g: "m", art: "it-temp" },
+  { mt: "xiex",   ru: "что",      topic: "qword" },
+
 ];

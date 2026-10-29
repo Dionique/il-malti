@@ -60,7 +60,7 @@
 
   // Единственный источник правды для счётчиков ответов.
   // Раньше список дублировался в трёх местах и разъезжался.
-  var STAT_KINDS = ["word", "sent", "pair", "form"];
+  var STAT_KINDS = ["word", "sent", "pair", "form", "dlg"];
 
   var INTERVALS = [0, 1, 2, 4, 8, 16];
   var DEFAULT_NEW_LIMIT = 10;
@@ -320,6 +320,7 @@
     if (name === "words") showWord();
     if (name === "sentences") showSentence();
     if (name === "forms") fmShow();
+    if (name === "dialogues") dgRender();
   }
 
   /* ---------- words ---------- */
@@ -1557,6 +1558,191 @@
     fmBuild();
   }
 
+  /* ---------- диалоги ---------- */
+
+  var DIALOGUES = window.DIALOGUES || [];
+  var dgIndex = 0, dgLine = 0, dgMode = "read", dgHide = false, dgDone = false, dgPicked = null;
+
+  function dg() { return DIALOGUES[dgIndex]; }
+
+  function dgId(d, i) { return "d:" + d.id + ":" + i; }
+
+  function dgFillPickers() {
+    $("dg-pick").innerHTML = DIALOGUES.map(function (d, i) {
+      return '<option value="' + i + '">' + escapeHtml(d.title) + "</option>";
+    }).join("");
+  }
+
+  function dgInit() {
+    dgFillPickers();
+    $("dg-pick").addEventListener("change", function (e) {
+      dgIndex = Number(e.target.value);
+      dgLine = 0;
+      dgRender();
+    });
+    $("dg-mode").addEventListener("change", function (e) {
+      dgMode = e.target.value;
+      dgLine = 0;
+      dgRender();
+    });
+    $("dg-hide").addEventListener("change", function (e) {
+      dgHide = e.target.checked;
+      dgRender();
+    });
+    $("dg-reveal").addEventListener("click", dgReveal);
+    $("dg-forward").addEventListener("click", dgNext);
+    $("dg-yes").addEventListener("click", function () { dgGrade(true); });
+    $("dg-no").addEventListener("click", function () { dgGrade(false); });
+    $("dg-body").addEventListener("click", dgBodyClick);
+    dgRender();
+  }
+
+  function dgLineHtml(line, showRu) {
+    return '<div class="dlg-line"><div class="dlg-who">' + escapeHtml(line.who) + "</div>" +
+      "<div><div class=\"dlg-mt\">" + escapeHtml(line.mt) + "</div>" +
+      '<div class="dlg-ru' + (showRu ? "" : " hidden") + '">' + escapeHtml(line.ru) + "</div></div></div>";
+  }
+
+  function dgRender() {
+    var d = dg();
+    if (!d) {
+      $("dg-body").innerHTML = '<p class="hint">Диалогов нет.</p>';
+      $("dg-actions").hidden = true;
+      return;
+    }
+    dgDone = false;
+    dgPicked = null;
+    $("dg-note").hidden = !d.note;
+    $("dg-note").textContent = d.note || "";
+    $("dg-hide-wrap").hidden = dgMode !== "read";
+    $("dg-grade").hidden = true;
+    $("dg-forward").hidden = true;
+    $("dg-feedback").textContent = "";
+    $("dg-feedback").className = "feedback";
+
+    if (dgMode === "read") {
+      $("dg-actions").hidden = true;
+      $("dg-counter").textContent = "Диалог " + (dgIndex + 1) + " из " + DIALOGUES.length +
+        " · реплик: " + d.lines.length;
+      $("dg-body").innerHTML = d.lines.map(function (l) { return dgLineHtml(l, !dgHide); }).join("");
+      return;
+    }
+
+    $("dg-actions").hidden = false;
+
+    if (dgMode === "drill") {
+      if (dgLine >= d.lines.length) {
+        $("dg-actions").hidden = true;
+        $("dg-counter").textContent = "Диалог пройден целиком";
+        $("dg-body").innerHTML = '<div class="done"><div class="done-title">Диалог пройден</div>' +
+          '<div class="done-text">Реплик: ' + d.lines.length +
+          ". Выберите другой диалог или нажмите «Дальше», чтобы пройти снова.</div></div>";
+        $("dg-forward").hidden = false;
+        return;
+      }
+      var line = d.lines[dgLine];
+      $("dg-counter").textContent = "Диалог " + (dgIndex + 1) + " · реплика " +
+        (dgLine + 1) + " из " + d.lines.length;
+      $("dg-body").innerHTML =
+        '<div class="card"><div class="card-tag">' + escapeHtml(line.who) + " · мальтийский</div>" +
+        '<div class="card-main">' + escapeHtml(line.mt) + "</div>" +
+        '<div class="card-back" id="dg-ru" hidden>' + escapeHtml(line.ru) + "</div>" +
+        '<div id="dg-tr"></div></div>';
+      $("dg-reveal").hidden = false;
+      return;
+    }
+
+    // выбор ответа: показать предыдущую реплику, спросить ответную
+    var pairs = [];
+    d.lines.forEach(function (l, i) {
+      if (i > 0 && l.who !== d.lines[i - 1].who) pairs.push(i);
+    });
+    if (dgLine >= pairs.length) {
+      $("dg-actions").hidden = true;
+      $("dg-counter").textContent = "Диалог пройден целиком";
+      $("dg-body").innerHTML = '<div class="done"><div class="done-title">Диалог пройден</div>' +
+        '<div class="done-text">Ответов: ' + pairs.length + ".</div></div>";
+      $("dg-forward").hidden = false;
+      return;
+    }
+    var idx = pairs[dgLine];
+    var prev = d.lines[idx - 1];
+    var right = d.lines[idx];
+    var pool = [];
+    DIALOGUES.forEach(function (o) {
+      if (o.id === d.id) return;
+      o.lines.forEach(function (l) { if (l.ru !== right.ru) pool.push(l); });
+    });
+    var opts = shuffle(pool).slice(0, 2);
+    var options = shuffle([right].concat(opts));
+
+    $("dg-counter").textContent = "Диалог " + (dgIndex + 1) + " · ответ " +
+      (dgLine + 1) + " из " + pairs.length;
+    $("dg-body").innerHTML =
+      '<div class="dlg-prev"><div class="dlg-who">' + escapeHtml(prev.who) + "</div>" +
+      '<div class="dlg-mt">' + escapeHtml(prev.mt) + "</div>" +
+      '<div class="dlg-ru">' + escapeHtml(prev.ru) + "</div></div>" +
+      '<div class="quiz-label">Что ответит ' + escapeHtml(right.who) + "?</div>" +
+      '<div class="choice-list" id="dg-options">' +
+      options.map(function (l) {
+        return '<button class="opt-sentence" data-ru="' + escapeHtml(l.ru) + '">' +
+          escapeHtml(l.mt) + "</button>";
+      }).join("") + "</div>";
+    $("dg-reveal").hidden = true;
+  }
+
+  function dgReveal() {
+    var d = dg();
+    if (!d || dgMode !== "drill" || dgDone) return;
+    var line = d.lines[dgLine];
+    $("dg-ru").hidden = false;
+    renderTranslit($("dg-tr"), line.mt);
+    $("dg-reveal").hidden = true;
+    $("dg-grade").hidden = false;
+  }
+
+  function dgGrade(ok) {
+    var d = dg();
+    if (!d || dgDone) return;
+    dgDone = true;
+    grade(dgId(d, dgLine), "dlg", ok);
+    $("dg-grade").hidden = true;
+    $("dg-forward").hidden = false;
+    $("dg-feedback").textContent = ok ? "Отмечено: знаю" : "Отмечено: не знаю";
+    $("dg-feedback").className = "feedback " + (ok ? "good" : "bad");
+    if (ok) window.setTimeout(function () { if (dgDone) dgNext(); }, 900);
+  }
+
+  function dgBodyClick(e) {
+    var btn = e.target.closest("#dg-options .opt-sentence");
+    if (!btn || dgMode !== "reply" || dgDone) return;
+    var d = dg();
+    var pairs = [];
+    d.lines.forEach(function (l, i) { if (i > 0 && l.who !== d.lines[i - 1].who) pairs.push(i); });
+    var right = d.lines[pairs[dgLine]];
+    var ok = btn.dataset.ru === right.ru;
+    Array.prototype.forEach.call($("dg-options").querySelectorAll(".opt-sentence"), function (o) {
+      o.classList.remove("ok", "bad");
+      if (o.dataset.ru === right.ru) o.classList.add("ok");
+      else if (o === btn) o.classList.add("bad");
+    });
+    dgDone = true;
+    grade(dgId(d, pairs[dgLine]), "dlg", ok);
+    $("dg-forward").hidden = false;
+    $("dg-feedback").textContent = ok ? "Верно!" : "Не так. Правильно: " + right.mt;
+    $("dg-feedback").className = "feedback " + (ok ? "good" : "bad");
+  }
+
+  function dgNext() {
+    var d = dg();
+    if (!d) return;
+    dgLine++;
+    var total = dgMode === "drill" ? d.lines.length :
+      d.lines.filter(function (l, i) { return i > 0 && l.who !== d.lines[i - 1].who; }).length;
+    if (dgLine >= total) dgLine = 0;      // по кругу
+    dgRender();
+  }
+
   /* ---------- alphabet ---------- */
 
   var ALPHABET = [
@@ -1616,7 +1802,7 @@
   /* ---------- progress ---------- */
 
   var KIND_LABEL = { word: "Слова", sent: "Предложения", pair: "Существительное + глагол",
-                     form: "Согласование, множественное, предлоги" };
+                     form: "Согласование, множественное, предлоги", dlg: "Диалоги" };
 
   // Сводка по любой коллекции: сколько начато, освоено и ждёт повторения.
   function srsSummary(prefix, uids) {
@@ -1638,6 +1824,11 @@
     out.push({ name: "Предложения", s: srsSummary("s:", SENTENCES.map(sid)) });
     out.push({ name: "Заполнить пропуски",
                s: srsSummary("b:", BLANKS.map(function (x) { return bid(x); })) });
+    var dlgIds = [];
+    DIALOGUES.forEach(function (d) {
+      d.lines.forEach(function (_, i) { dlgIds.push(dgId(d, i)); });
+    });
+    out.push({ name: "Диалоги", s: srsSummary("d:", dlgIds) });
     Object.keys(FM_MODES).forEach(function (k) {
       var m = FM_MODES[k];
       out.push({ name: m.label, s: srsSummary(m.prefix, m.list.map(function (x) { return x.uid; })) });
@@ -1775,6 +1966,7 @@
     initWords();
     initSentences();
     fmInit();
+    dgInit();
     initAlphabet();
     initProgress();
     initKeys();

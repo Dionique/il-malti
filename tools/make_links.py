@@ -71,6 +71,21 @@ ALIASES = {
     "illum": "llum",
     # варианты из живых фраз
     "vera": "veru",
+    # формы из диалогов
+    "wasalna": "wasal",
+    "imur": "mar",
+    "jogħġbok": "jekk jogħġbok",
+    "insarraf": "sarraf",
+    "tliet": "tlieta",
+    "x'": "xiex",
+    "mitt": "mija",
+    "tgħin": "għen",
+    "jgħin": "għen",
+    "rasi": "ras",
+    "tiġi": "ġie",
+    "inhi": "hi",
+    "jisimni": "isem",
+    "jismek": "sema'",
     "żewġ": "tnejn",
     "immur": "mar",
     "qtates": "qattus",
@@ -94,7 +109,7 @@ ALIASES = {
 IGNORED = {
     "ma", "m'", "qed", "l", "il", "ta", "ta'", "fi", "f'", "bil", "bl",
     "minn", "li", "biex", "sa", "ġo", "fuq", "taħt", "ma'",
-    "anna", "birkirkara", "f'birkirkara",
+    "anna", "birkirkara", "f'birkirkara", "pawlu", "anna ivanova",
 }
 
 # Prefixes attached with a hyphen (il-ħobż, is-sinjura, fil-kamra).

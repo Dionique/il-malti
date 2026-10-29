@@ -452,6 +452,32 @@ textarea { width: 100%; resize: vertical; min-height: 64px; }
   margin-bottom: 6px;
 }
 
+.dlg-line {
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.dlg-line:last-child { border-bottom: 0; }
+
+.dlg-who { font-weight: 700; color: var(--accent); }
+
+.dlg-mt { font-size: 17px; font-weight: 600; }
+
+.dlg-ru { font-size: 14px; color: var(--muted); margin-top: 2px; }
+
+.dlg-ru.hidden { visibility: hidden; }
+
+.dlg-prev {
+  padding: 12px 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
 .blank-note {
   margin-top: 10px;
   padding: 10px 12px;

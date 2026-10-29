@@ -591,6 +591,93 @@ def main():
               page.locator("#s-ru .blank-slot.ok").count() +
               page.locator("#s-ru .blank-slot.bad").count(), 0)
 
+        # --- диалоги: фразы в контексте ---
+        page.evaluate("() => localStorage.clear()")
+        page.reload()
+        page.click('.tab[data-tab="dialogues"]')
+        check("диалоги загружены", page.locator("#dg-pick option").count(),
+              predicate=lambda n: n >= 5)
+        check("три режима диалогов", page.locator("#dg-mode option").count(), 3)
+        check("у каждого диалога есть заголовок и реплики", page.evaluate("""() =>
+              window.DIALOGUES.every(d => d.title && d.lines && d.lines.length >= 3)"""), True)
+        check("у каждой реплики есть мальтийский и перевод", page.evaluate("""() =>
+              window.DIALOGUES.every(d => d.lines.every(l =>
+                l.mt && l.mt.trim() && l.ru && l.ru.trim()))"""), True)
+        check("внутри диалога переводы не повторяются", page.evaluate("""() =>
+              window.DIALOGUES.every(d => {
+                const r = d.lines.map(l => l.ru);
+                return new Set(r).size === r.length;
+              })"""), True)
+        check("идентификаторы диалогов уникальны", page.evaluate("""() => {
+              const ids = window.DIALOGUES.map(d => d.id);
+              return new Set(ids).size === ids.length;
+            }"""), True)
+        check("в каждом диалоге есть обе стороны", page.evaluate("""() =>
+              window.DIALOGUES.every(d => {
+                const who = new Set(d.lines.map(l => l.who));
+                return who.size === 2;
+              })"""), True)
+
+        # чтение
+        lines = page.locator("#dg-body .dlg-line").count()
+        check("в режиме чтения видны все реплики", lines,
+              predicate=lambda n: n >= 4)
+        check("перевод виден", page.locator("#dg-body .dlg-ru").count(), lines)
+        page.check("#dg-hide")
+        check("перевод скрывается по переключателю", page.evaluate("""() =>
+              [...document.querySelectorAll('#dg-body .dlg-ru')]
+                .every(x => getComputedStyle(x).visibility === 'hidden')"""), True)
+        page.uncheck("#dg-hide")
+
+        # перевод по репликам
+        page.select_option("#dg-mode", "drill")
+        total = page.locator("#dg-pick option").count()
+        check("в тренировке одна реплика", page.locator("#dg-body .card-main").count(), 1)
+        check("перевод скрыт до нажатия", page.locator("#dg-ru").is_hidden(), True)
+        check("кнопки оценки скрыты до нажатия", page.locator("#dg-grade").is_hidden(), True)
+        page.click("#dg-reveal")
+        check("перевод показывается", page.locator("#dg-ru").is_hidden(), False)
+        check("транскрипция показывается", page.inner_text("#dg-tr"),
+              predicate=lambda s: "[" in s)
+        check("кнопки оценки появились", page.locator("#dg-grade").is_hidden(), False)
+        before = page.inner_text("#dg-counter")
+        page.click("#dg-yes")
+        check("оценка отмечена", page.inner_text("#dg-feedback"),
+              predicate=lambda s: "знаю" in s)
+        page.wait_for_timeout(1300)
+        check("после оценки идём дальше", page.inner_text("#dg-counter") != before, True)
+
+        # выбор ответа
+        page.select_option("#dg-mode", "reply")
+        check("показана предыдущая реплика", page.locator("#dg-body .dlg-prev").count(), 1)
+        check("вариантов ответа три", page.locator("#dg-options .opt-sentence").count(), 3)
+        check("есть верный вариант среди них", page.evaluate("""() => {
+              const d = window.DIALOGUES[0];
+              const pairs = [];
+              d.lines.forEach((l, i) => { if (i > 0 && l.who !== d.lines[i-1].who) pairs.push(i); });
+              const right = d.lines[pairs[0]].mt;
+              return [...document.querySelectorAll('#dg-options .opt-sentence')]
+                .some(o => o.textContent === right);
+            }"""), True)
+        page.locator("#dg-options .opt-sentence").first.click()
+        check("выбор ответа проверяется", page.inner_text("#dg-feedback"),
+              predicate=lambda s: len(s) > 0)
+        check("подсвечен ровно один верный вариант",
+              page.locator("#dg-options .ok").count(), 1)
+        check("после ответа есть «Дальше»", page.locator("#dg-forward").is_hidden(), False)
+
+        # прогресс учитывает диалоги
+        page.click('.tab[data-tab="progress"]')
+        sets = [x.replace("\n", " ") for x in page.evaluate(
+            "() => [...document.querySelectorAll('#p-sets .set-row')].map(r => r.innerText)")]
+        check("в прогрессе есть набор «Диалоги»",
+              [x for x in sets if x.startswith("Диалоги")], predicate=lambda v: len(v) == 1)
+        kinds = [x.replace("\n", " ") for x in page.evaluate(
+            "() => [...document.querySelectorAll('#p-kinds .set-row')].map(r => r.innerText)")]
+        check("ответы в диалогах учтены",
+              [x for x in kinds if x.startswith("Диалоги") and "ответов: " in x],
+              predicate=lambda v: len(v) == 1)
+
         # --- alphabet ---        # --- alphabet ---
         page.click('.tab[data-tab="alphabet"]')
         check("alphabet cells", page.locator("#alpha-grid .alpha-cell").count(), 30)
@@ -601,8 +688,8 @@ def main():
         page.click('.tab[data-tab="progress"]')
         check("stat cards", page.locator("#p-stats .stat").count(), 6)
         check("box rows", page.locator("#p-boxes .box-row").count(), 7)
-        check("progress rows per exercise set", page.locator("#p-sets .set-row").count(), 7)
-        check("answer rows per mode", page.locator("#p-kinds .set-row").count(), 4)
+        check("progress rows per exercise set", page.locator("#p-sets .set-row").count(), 8)
+        check("answer rows per mode", page.locator("#p-kinds .set-row").count(), 5)
         check("day rows", page.locator("#p-days .box-row").count(), 7)
 
         # --- reset ---
@@ -664,7 +751,7 @@ def main():
         # (3) у каждого набора упражнений виден свой прогресс
         sets = [x.replace("\n", " ") for x in page.evaluate(
             "() => [...document.querySelectorAll('#p-sets .set-row')].map(r => r.innerText)")]
-        check("прогресс показан по всем наборам", len(sets), 7)
+        check("прогресс показан по всем наборам", len(sets), 8)
         check("у наборов видны начатые и «далее»",
               all("начато:" in x and "далее:" in x and "к повторению:" in x for x in sets), True)
 
