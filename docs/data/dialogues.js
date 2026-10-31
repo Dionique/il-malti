@@ -288,5 +288,173 @@ window.DIALOGUES = [
       { who: "A", mt: "Tajjeb. Narak hemm.", ru: "Хорошо. Увидимся там." },
       { who: "B", mt: "Narak!", ru: "Увидимся!" }
     ]
+  },
+  {
+    id: "numbers",
+    title: "Числа и покупки",
+    topic: "number",
+    note: "Kemm jiswa? — «сколько стоит». erba' — форма числа «четыре» перед существительным.",
+    lines: [
+      { who: "A", mt: "Kemm jiswa dan?", ru: "Сколько это стоит?" },
+      { who: "B", mt: "Jiswa ħames ewro.", ru: "Стоит пять евро." },
+      { who: "A", mt: "Għandi biss tliet ewro.", ru: "У меня только три евро." },
+      { who: "B", mt: "Tajjeb, erba' ewro.", ru: "Ладно, четыре евро." },
+      { who: "A", mt: "Hawn. Grazzi!", ru: "Вот. Спасибо!" },
+      { who: "B", mt: "Grazzi. Saħħa!", ru: "Спасибо. Пока!" }
+    ]
+  },
+  {
+    id: "chores",
+    title: "Домашние дела",
+    topic: "house",
+    note: "Qed + глагол — «делаю прямо сейчас»: qed nnaddaf — я убираю.",
+    lines: [
+      { who: "A", mt: "X'qed tagħmel?", ru: "Что ты делаешь?" },
+      { who: "B", mt: "Qed nnaddaf il-kamra.", ru: "Я убираю комнату." },
+      { who: "A", mt: "U wara?", ru: "А потом?" },
+      { who: "B", mt: "Wara nsajjar l-ikel.", ru: "Потом я готовлю еду." },
+      { who: "A", mt: "Jien naħsel il-karozza.", ru: "Я мою машину." },
+      { who: "B", mt: "Tajjeb! Grazzi.", ru: "Хорошо! Спасибо." }
+    ]
+  },
+  {
+    id: "clock",
+    title: "Который час и встреча",
+    topic: "time",
+    note: "Kemm hu l-ħin? — «который час». Часы женского рода: hija tlieta.",
+    lines: [
+      { who: "A", mt: "Kemm hu l-ħin?", ru: "Который час?" },
+      { who: "B", mt: "Hija tlieta.", ru: "Три часа." },
+      { who: "A", mt: "Meta hija l-laqgħa?", ru: "Когда совещание?" },
+      { who: "B", mt: "Fil-ħamsa.", ru: "В пять." },
+      { who: "A", mt: "Tajjeb. Narak hemm.", ru: "Хорошо. Увидимся там." },
+      { who: "B", mt: "Narak hemm!", ru: "Увидимся там!" }
+    ]
+  },
+  {
+    id: "smalltalk",
+    title: "Как дела",
+    topic: "greet",
+    note: "Mhux ħażin — «неплохо», дословно «не плохо».",
+    lines: [
+      { who: "A", mt: "Kif int illum?", ru: "Как ты сегодня?" },
+      { who: "B", mt: "Tajjeb, grazzi. U int?", ru: "Хорошо, спасибо. А ты?" },
+      { who: "A", mt: "Mhux ħażin.", ru: "Неплохо." },
+      { who: "B", mt: "X'hemm ġdid?", ru: "Что нового?" },
+      { who: "A", mt: "Xejn.", ru: "Ничего." },
+      { who: "B", mt: "Tajjeb. Narak!", ru: "Хорошо. Увидимся!" }
+    ]
+  },
+  {
+    id: "seasons",
+    title: "Времена года",
+    topic: "weather",
+    note: "ix-xitwa — зима, is-sajf — лето. Оба слова с определённым артиклем.",
+    lines: [
+      { who: "A", mt: "Kif inhi t-temp?", ru: "Какая погода?" },
+      { who: "B", mt: "Qed tagħmel ix-xita.", ru: "Идёт дождь." },
+      { who: "A", mt: "F'dan iż-żmien spiss tagħmel ix-xita.", ru: "В это время часто идёт дождь." },
+      { who: "B", mt: "Iva, ix-xitwa hija kiesħa.", ru: "Да, зима холодная." },
+      { who: "A", mt: "Fis-sajf huwa sħun ħafna.", ru: "Летом очень жарко." },
+      { who: "B", mt: "Iva, u l-baħar huwa sħun.", ru: "Да, и море тёплое." }
+    ]
+  },
+  {
+    id: "school",
+    title: "В школе",
+    topic: "place",
+    note: "l-għalliem — учитель. eżami tal-Malti — экзамен по мальтийскому.",
+    lines: [
+      { who: "A", mt: "Fejn hi l-iskola?", ru: "Где школа?" },
+      { who: "B", mt: "Hija ħdejn il-bank.", ru: "Она рядом с банком." },
+      { who: "A", mt: "Għandek eżami llum?", ru: "У тебя сегодня экзамен?" },
+      { who: "B", mt: "Iva, eżami tal-Malti.", ru: "Да, экзамен по мальтийскому." },
+      { who: "A", mt: "Kif hu l-għalliem?", ru: "Какой учитель?" },
+      { who: "B", mt: "Tajjeb ħafna.", ru: "Очень хороший." }
+    ]
+  },
+  {
+    id: "taste",
+    title: "Еда и вкусы",
+    topic: "food",
+    note: "jien bil-ġuħ — «я голоден», дословно «я с голодом».",
+    lines: [
+      { who: "A", mt: "Trid tiekol?", ru: "Хочешь есть?" },
+      { who: "B", mt: "Iva, jien bil-ġuħ.", ru: "Да, я голоден." },
+      { who: "A", mt: "Trid il-ħut jew il-laħam?", ru: "Хочешь рыбу или мясо?" },
+      { who: "B", mt: "Il-ħut, jekk jogħġbok.", ru: "Рыбу, пожалуйста." },
+      { who: "A", mt: "U t-tuffieħa?", ru: "А яблоко?" },
+      { who: "B", mt: "Le, grazzi. Irrid il-kafè.", ru: "Нет, спасибо. Я хочу кофе." }
+    ]
+  },
+  {
+    id: "clothes",
+    title: "Одежда",
+    topic: "things",
+    note: "qmis — рубашка, qalziet — брюки. Оба слова мужского рода.",
+    lines: [
+      { who: "A", mt: "Dan il-qmis huwa ġdid?", ru: "Эта рубашка новая?" },
+      { who: "B", mt: "Iva, ġdid.", ru: "Да, новая." },
+      { who: "A", mt: "U l-qalziet?", ru: "А брюки?" },
+      { who: "B", mt: "Dan huwa qadim.", ru: "Они старые." },
+      { who: "A", mt: "Irrid nixtri qmis ġdid ukoll.", ru: "Я тоже хочу купить новую рубашку." },
+      { who: "B", mt: "Ejja fil-ħanut.", ru: "Пойдём в магазин." }
+    ]
+  },
+  {
+    id: "computer",
+    title: "За компьютером",
+    topic: "office",
+    note: "mhux qed jaħdem — «не работает», дословно «не делает».",
+    lines: [
+      { who: "A", mt: "Il-kompjuter tiegħi mhux qed jaħdem.", ru: "Мой компьютер не работает." },
+      { who: "B", mt: "Għandek fajl importanti?", ru: "У тебя есть важный файл?" },
+      { who: "A", mt: "Iva, għandi dokument importanti.", ru: "Да, у меня важный документ." },
+      { who: "B", mt: "Dan huwa problema kbira.", ru: "Это большая проблема." },
+      { who: "A", mt: "Iva, problema kbira.", ru: "Да, большая проблема." },
+      { who: "B", mt: "Irrid nara dan.", ru: "Мне надо это посмотреть." }
+    ]
+  },
+  {
+    id: "party",
+    title: "Праздник и подарок",
+    topic: "greet",
+    note: "il-festa — праздник. Forsi — «может быть».",
+    lines: [
+      { who: "A", mt: "Il-festa hija għada?", ru: "Праздник завтра?" },
+      { who: "B", mt: "Iva, għada filgħaxija.", ru: "Да, завтра вечером." },
+      { who: "A", mt: "Irrid nixtri rigal.", ru: "Я хочу купить подарок." },
+      { who: "B", mt: "X'trid tixtri?", ru: "Что ты хочешь купить?" },
+      { who: "A", mt: "Forsi ktieb.", ru: "Может быть, книгу." },
+      { who: "B", mt: "Tajjeb ħafna!", ru: "Очень хорошо!" }
+    ]
+  },
+  {
+    id: "petrol",
+    title: "На заправке",
+    topic: "travel",
+    note: "ħanut tal-petrol — заправка, дословно «магазин бензина».",
+    lines: [
+      { who: "A", mt: "Għandek karozza?", ru: "У тебя есть машина?" },
+      { who: "B", mt: "Iva, imma hija qadima.", ru: "Да, но она старая." },
+      { who: "A", mt: "Trid petrol?", ru: "Тебе нужен бензин?" },
+      { who: "B", mt: "Iva, il-karozza għandha bżonn petrol.", ru: "Да, машине нужен бензин." },
+      { who: "A", mt: "Hawn ħanut tal-petrol qrib.", ru: "Здесь рядом заправка." },
+      { who: "B", mt: "Tajjeb. Ejja.", ru: "Хорошо. Поехали." }
+    ]
+  },
+  {
+    id: "appointment",
+    title: "Запись к врачу",
+    topic: "body",
+    note: "it-tabib — врач. Għada filgħodu — «завтра утром».",
+    lines: [
+      { who: "A", mt: "Irrid appuntament mat-tabib.", ru: "Я хочу запись к врачу." },
+      { who: "B", mt: "Meta trid?", ru: "Когда ты хочешь?" },
+      { who: "A", mt: "Għada filgħodu.", ru: "Завтра утром." },
+      { who: "B", mt: "Fi tlieta, jekk jogħġbok.", ru: "В три, пожалуйста." },
+      { who: "A", mt: "Tajjeb. Grazzi.", ru: "Хорошо. Спасибо." },
+      { who: "B", mt: "Saħħa!", ru: "Пока!" }
+    ]
   }
 ];

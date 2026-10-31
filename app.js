@@ -1559,29 +1559,115 @@
   }
 
   /* ---------- диалоги ---------- */
+  //
+  // Диалог можно читать целиком или тренировать по репликам. Кроме ручного
+  // выбора есть режим «Смешанно»: очередь строится по срокам повторения, как
+  // в других разделах, и реплики идут из разных диалогов.
 
   var DIALOGUES = window.DIALOGUES || [];
-  var dgIndex = 0, dgLine = 0, dgMode = "read", dgHide = false, dgDone = false, dgPicked = null;
+  var dgIndex = -1;            // -1 = смешанный режим
+  var dgMode = "read";
+  var dgLine = 0;
+  var dgHide = false;
+  var dgDone = false;
+  var dgRole = "A";
+  var dgQueue = [];            // очередь реплик в смешанном режиме
+  var dgPicked = [];           // выбранные варианты (порядок, сборка)
+  var dgCurrent = null;        // текущая реплика в тренировке
+  var dgTokens = [];           // слова текущей реплики для сборки
+  var dgQueueFor = null;       // для какого режима построена очередь
 
-  function dg() { return DIALOGUES[dgIndex]; }
+  var DEFAULT_DLG_LIMIT = 10;
+  var DG_MIXED_MODES = { drill: 1, build: 1, who: 1 };
+
+  function dg() { return dgIndex < 0 ? null : DIALOGUES[dgIndex]; }
+
+  function dgMixed() { return dgIndex < 0; }
 
   function dgId(d, i) { return "d:" + d.id + ":" + i; }
 
-  function dgFillPickers() {
-    $("dg-pick").innerHTML = DIALOGUES.map(function (d, i) {
-      return '<option value="' + i + '">' + escapeHtml(d.title) + "</option>";
-    }).join("");
+  function dgLimit() {
+    return state.dlgLimit === undefined ? DEFAULT_DLG_LIMIT : state.dlgLimit;
+  }
+
+  function dgIntroduced() { return countIntroduced("d:"); }
+
+  function dgRemaining() {
+    var limit = dgLimit();
+    if (!limit) return Infinity;
+    return Math.max(0, limit - dgIntroduced());
+  }
+
+  // Освоено реплик в диалоге: коробка 3 и выше.
+  function dgLearned(d) {
+    return d.lines.filter(function (_, i) {
+      var r = state.items[dgId(d, i)];
+      return r && r.b >= 3;
+    }).length;
+  }
+
+  // Реплики для ответа: те, что идут после смены говорящего.
+  function dgReplyPairs(d) {
+    var out = [];
+    d.lines.forEach(function (l, i) {
+      if (i > 0 && l.who !== d.lines[i - 1].who) out.push(i);
+    });
+    return out;
+  }
+
+  function dgAllLines() {
+    var out = [];
+    DIALOGUES.forEach(function (d) {
+      d.lines.forEach(function (l, i) {
+        out.push({ d: d, i: i, uid: dgId(d, i), line: l });
+      });
+    });
+    return out;
+  }
+
+  // Очередь смешанного режима: сначала просроченные, потом новые по лимиту.
+  function dgBuildQueue(allowedModes) {
+    var all = dgAllLines().filter(function (x) {
+      if (!allowedModes) return true;
+      // «Кто сказал» и «сборка» требуют реплику, где понятно, кто говорит
+      return allowedModes[x.line.who] !== undefined;
+    });
+    var due = all.filter(function (x) {
+      var r = state.items[x.uid];
+      return r && r.d <= dayNumber();
+    }).sort(function (a, b) {
+      return state.items[a.uid].d - state.items[b.uid].d;
+    });
+    var fresh = shuffle(all.filter(function (x) { return !state.items[x.uid]; }));
+    var left = dgRemaining();
+    if (left !== Infinity) fresh = fresh.slice(0, left);
+    dgQueue = due.concat(fresh);
+    dgLine = 0;
   }
 
   function dgInit() {
-    dgFillPickers();
+    state.dlgLimit = dgLimit();
+    $("dg-limit").value = String(dgLimit());
     $("dg-pick").addEventListener("change", function (e) {
       dgIndex = Number(e.target.value);
       dgLine = 0;
+      dgDone = false;
       dgRender();
     });
     $("dg-mode").addEventListener("change", function (e) {
       dgMode = e.target.value;
+      dgLine = 0;
+      dgDone = false;
+      dgRender();
+    });
+    $("dg-role").addEventListener("change", function (e) {
+      dgRole = e.target.value;
+      dgRender();
+    });
+    $("dg-limit").addEventListener("change", function (e) {
+      state.dlgLimit = Number(e.target.value);
+      saveState();
+      dgQueueFor = null;          // лимит изменился — очередь строим заново
       dgLine = 0;
       dgRender();
     });
@@ -1594,77 +1680,193 @@
     $("dg-yes").addEventListener("click", function () { dgGrade(true); });
     $("dg-no").addEventListener("click", function () { dgGrade(false); });
     $("dg-body").addEventListener("click", dgBodyClick);
+    dgFillPickers();
     dgRender();
+  }
+
+  function dgFillPickers() {
+    var opts = ['<option value="-1">Смешанно, по повторению</option>'];
+    DIALOGUES.forEach(function (d, i) {
+      var learned = dgLearned(d);
+      opts.push('<option value="' + i + '">' + escapeHtml(d.title) + " — " +
+        learned + "/" + d.lines.length + "</option>");
+    });
+    $("dg-pick").innerHTML = opts.join("");
+    $("dg-pick").value = String(dgIndex);
   }
 
   function dgLineHtml(line, showRu) {
     return '<div class="dlg-line"><div class="dlg-who">' + escapeHtml(line.who) + "</div>" +
       "<div><div class=\"dlg-mt\">" + escapeHtml(line.mt) + "</div>" +
-      '<div class="dlg-ru' + (showRu ? "" : " hidden") + '">' + escapeHtml(line.ru) + "</div></div></div>";
+      '<div class="dlg-ru' + (showRu ? "" : " hidden") + '">' + escapeHtml(line.ru) +
+      "</div></div></div>";
+  }
+
+  function dgSetActions(reveal, forward, grade) {
+    $("dg-reveal").hidden = !reveal;
+    $("dg-forward").hidden = !forward;
+    $("dg-grade").hidden = !grade;
+  }
+
+  function dgReset() {
+    dgDone = false;
+    dgPicked = [];
+    dgCurrent = null;
+    dgTokens = [];
+    $("dg-feedback").textContent = "";
+    $("dg-feedback").className = "feedback";
+  }
+
+  function dgEmpty(text, title) {
+    $("dg-counter").textContent = "";
+    $("dg-body").innerHTML = '<div class="done"><div class="done-title">' +
+      escapeHtml(title || "На сегодня всё") + '</div>' +
+      '<div class="done-text">' + escapeHtml(text) + "</div></div>";
+    $("dg-actions").hidden = false;
+    dgSetActions(false, true, false);
   }
 
   function dgRender() {
-    var d = dg();
-    if (!d) {
+    if (!DIALOGUES.length) {
       $("dg-body").innerHTML = '<p class="hint">Диалогов нет.</p>';
       $("dg-actions").hidden = true;
       return;
     }
-    dgDone = false;
-    dgPicked = null;
-    $("dg-note").hidden = !d.note;
-    $("dg-note").textContent = d.note || "";
-    $("dg-hide-wrap").hidden = dgMode !== "read";
-    $("dg-grade").hidden = true;
-    $("dg-forward").hidden = true;
-    $("dg-feedback").textContent = "";
-    $("dg-feedback").className = "feedback";
+    dgReset();
 
-    if (dgMode === "read") {
-      $("dg-actions").hidden = true;
-      $("dg-counter").textContent = "Диалог " + (dgIndex + 1) + " из " + DIALOGUES.length +
-        " · реплик: " + d.lines.length;
-      $("dg-body").innerHTML = d.lines.map(function (l) { return dgLineHtml(l, !dgHide); }).join("");
-      return;
+    var mixed = dgMixed();
+    // в смешанном режиме доступны только те задания, что не требуют одного диалога
+    if (mixed && !DG_MIXED_MODES[dgMode]) {
+      dgMode = "drill";
+      $("dg-mode").value = "drill";
     }
+    // очередь смешанного режима строим заново при смене режима или диалога
+    if (mixed && dgQueueFor !== dgMode) {
+      dgBuildQueue({ A: 1, B: 1 });
+      dgQueueFor = dgMode;
+    }
+    if (!mixed) dgQueueFor = null;
+    Array.prototype.forEach.call($("dg-mode").querySelectorAll("option"), function (o) {
+      o.disabled = mixed && !DG_MIXED_MODES[o.value];
+    });
 
+    $("dg-role-wrap").hidden = dgMode !== "role";
+    $("dg-limit-wrap").hidden = !(mixed || dgMode === "drill");
+    $("dg-hide-wrap").hidden = dgMode !== "read";
     $("dg-actions").hidden = false;
 
-    if (dgMode === "drill") {
-      if (dgLine >= d.lines.length) {
-        $("dg-actions").hidden = true;
-        $("dg-counter").textContent = "Диалог пройден целиком";
-        $("dg-body").innerHTML = '<div class="done"><div class="done-title">Диалог пройден</div>' +
-          '<div class="done-text">Реплик: ' + d.lines.length +
-          ". Выберите другой диалог или нажмите «Дальше», чтобы пройти снова.</div></div>";
-        $("dg-forward").hidden = false;
-        return;
-      }
-      var line = d.lines[dgLine];
-      $("dg-counter").textContent = "Диалог " + (dgIndex + 1) + " · реплика " +
-        (dgLine + 1) + " из " + d.lines.length;
-      $("dg-body").innerHTML =
-        '<div class="card"><div class="card-tag">' + escapeHtml(line.who) + " · мальтийский</div>" +
-        '<div class="card-main">' + escapeHtml(line.mt) + "</div>" +
-        '<div class="card-back" id="dg-ru" hidden>' + escapeHtml(line.ru) + "</div>" +
-        '<div id="dg-tr"></div></div>';
-      $("dg-reveal").hidden = false;
-      return;
+    var d = dg();
+    $("dg-note").hidden = true;
+    if (d) {
+      $("dg-note").hidden = !d.note;
+      $("dg-note").textContent = d.note || "";
+    } else {
+      $("dg-note").hidden = false;
+      $("dg-note").textContent = "Смешанный режим: реплики из разных диалогов по сроку повторения. " +
+        "Новых сегодня: " + dgIntroduced() +
+        (dgLimit() ? " из " + dgLimit() : "") + ".";
     }
 
-    // выбор ответа: показать предыдущую реплику, спросить ответную
-    var pairs = [];
-    d.lines.forEach(function (l, i) {
-      if (i > 0 && l.who !== d.lines[i - 1].who) pairs.push(i);
-    });
+    if (dgMode === "read") { dgRenderRead(d); return; }
+    if (dgMode === "order") { dgRenderOrder(d); return; }
+    if (dgMode === "role") { dgRenderRole(d); return; }
+    if (dgMode === "drill") { dgRenderDrill(mixed, d); return; }
+    if (dgMode === "reply") { dgRenderReply(d); return; }
+    if (dgMode === "who") { dgRenderWho(mixed, d); return; }
+    if (dgMode === "build") { dgRenderBuild(mixed, d); return; }
+  }
+
+  /* --- чтение ------------------------------------------------------------ */
+
+  function dgRenderRead(d) {
+    if (!d) { dgEmpty("Выберите диалог — в смешанном режиме чтение недоступно."); return; }
+    dgSetActions(false, false, false);
+    $("dg-counter").textContent = "Диалог " + (dgIndex + 1) + " из " + DIALOGUES.length +
+      " · реплик: " + d.lines.length + " · освоено: " + dgLearned(d);
+    $("dg-body").innerHTML = d.lines.map(function (l) { return dgLineHtml(l, !dgHide); }).join("");
+  }
+
+  /* --- роль-плей --------------------------------------------------------- */
+
+  function dgRenderRole(d) {
+    if (!d) { dgEmpty("Выберите диалог — роль-плей работает с одним диалогом."); return; }
+    dgSetActions(false, false, false);
+    var mine = d.lines.filter(function (l) { return l.who === dgRole; }).length;
+    $("dg-counter").textContent = "Диалог " + (dgIndex + 1) + " · ваша роль " + dgRole +
+      " · ваших реплик: " + mine;
+    $("dg-body").innerHTML = d.lines.map(function (l) {
+      if (l.who !== dgRole) return dgLineHtml(l, true);
+      return '<div class="dlg-line"><div class="dlg-who">' + escapeHtml(l.who) + "</div>" +
+        '<div><button class="opt-sentence dg-mine" data-ru="' + escapeHtml(l.ru) + '">' +
+        "ваша реплика — нажмите, чтобы увидеть</button>" +
+        '<div class="dlg-ru hidden" data-role-ru="1">' + escapeHtml(l.ru) + "</div></div></div>";
+    }).join("");
+  }
+
+  /* --- порядок реплик ---------------------------------------------------- */
+
+  function dgRenderOrder(d) {
+    if (!d) { dgEmpty("Выберите диалог — порядок реплик работает с одним диалогом."); return; }
+    if (d.lines.length < 3) { dgEmpty("В этом диалоге слишком мало реплик."); return; }
+    dgSetActions(true, false, false);
+    $("dg-reveal").textContent = "Показать порядок";
+    $("dg-counter").textContent = "Расставьте " + d.lines.length + " реплик по порядку";
+    var idx = d.lines.map(function (_, i) { return i; });
+    $("dg-body").innerHTML =
+      '<div class="answer" id="dg-order-answer"><span class="placeholder">Нажимайте реплики по порядку…</span></div>' +
+      '<div class="chips" id="dg-order-chips">' +
+      shuffle(idx).map(function (i) {
+        return '<button class="opt-sentence" data-order="' + i + '">' +
+          escapeHtml(d.lines[i].mt) + "</button>";
+      }).join("") + "</div>";
+  }
+
+  /* --- перевод по репликам ----------------------------------------------- */
+
+  function dgRenderDrill(mixed, d) {
+    var item = null;
+    if (mixed) {
+      if (dgLine >= dgQueue.length) {
+        dgEmpty("Новых реплик сегодня больше нет. Следующее повторение: " +
+                nextDueDate("d:") + ".");
+        return;
+      }
+      item = dgQueue[dgLine];
+      d = item.d;
+    } else {
+      if (!d) { dgEmpty("Выберите диалог."); return; }
+      if (dgLine >= d.lines.length) {
+        dgEmpty("Диалог пройден целиком. Освоено " + dgLearned(d) + " из " +
+                d.lines.length + " реплик.");
+        return;
+      }
+      item = { d: d, i: dgLine, uid: dgId(d, dgLine), line: d.lines[dgLine] };
+    }
+    dgCurrent = item;
+    $("dg-counter").textContent = (mixed ? "Смешанно" : "Диалог " + (dgIndex + 1)) +
+      " · реплика " + (dgLine + 1) + (mixed ? " из " + dgQueue.length : " из " + d.lines.length) +
+      (mixed ? " · " + d.title : "");
+    $("dg-body").innerHTML =
+      '<div class="card"><div class="card-tag">' + escapeHtml(item.line.who) +
+      " · мальтийский</div>" +
+      '<div class="card-main">' + escapeHtml(item.line.mt) + "</div>" +
+      '<div class="card-back" id="dg-ru" hidden>' + escapeHtml(item.line.ru) + "</div>" +
+      '<div id="dg-tr"></div></div>';
+    dgSetActions(true, false, false);
+    $("dg-reveal").textContent = "Показать перевод";
+  }
+
+  /* --- выбор ответа ------------------------------------------------------ */
+
+  function dgRenderReply(d) {
+    if (!d) { dgEmpty("Выберите диалог — выбор ответа работает с одним диалогом."); return; }
+    var pairs = dgReplyPairs(d);
+    if (!pairs.length) { dgEmpty("В этом диалоге нет пар вопрос-ответ."); return; }
     if (dgLine >= pairs.length) {
-      $("dg-actions").hidden = true;
-      $("dg-counter").textContent = "Диалог пройден целиком";
-      $("dg-body").innerHTML = '<div class="done"><div class="done-title">Диалог пройден</div>' +
-        '<div class="done-text">Ответов: ' + pairs.length + ".</div></div>";
-      $("dg-forward").hidden = false;
+      dgEmpty("Все ответы пройдены. Освоено " + dgLearned(d) + " из " + d.lines.length + " реплик.");
       return;
     }
+    dgSetActions(false, false, false);
     var idx = pairs[dgLine];
     var prev = d.lines[idx - 1];
     var right = d.lines[idx];
@@ -1673,9 +1875,7 @@
       if (o.id === d.id) return;
       o.lines.forEach(function (l) { if (l.ru !== right.ru) pool.push(l); });
     });
-    var opts = shuffle(pool).slice(0, 2);
-    var options = shuffle([right].concat(opts));
-
+    var options = shuffle([right].concat(shuffle(pool).slice(0, 2)));
     $("dg-counter").textContent = "Диалог " + (dgIndex + 1) + " · ответ " +
       (dgLine + 1) + " из " + pairs.length;
     $("dg-body").innerHTML =
@@ -1688,58 +1888,225 @@
         return '<button class="opt-sentence" data-ru="' + escapeHtml(l.ru) + '">' +
           escapeHtml(l.mt) + "</button>";
       }).join("") + "</div>";
-    $("dg-reveal").hidden = true;
+  }
+
+  /* --- кто сказал -------------------------------------------------------- */
+
+  function dgRenderWho(mixed, d) {
+    var item = null;
+    if (mixed) {
+      if (dgLine >= dgQueue.length) {
+        dgEmpty("Новых реплик сегодня больше нет. Следующее повторение: " +
+                nextDueDate("d:") + ".");
+        return;
+      }
+      item = dgQueue[dgLine];
+    } else {
+      if (!d) { dgEmpty("Выберите диалог."); return; }
+      if (dgLine >= d.lines.length) { dgEmpty("Диалог пройден целиком."); return; }
+      item = { d: d, i: dgLine, uid: dgId(d, dgLine), line: d.lines[dgLine] };
+    }
+    dgCurrent = item;
+    dgSetActions(false, false, false);
+    $("dg-counter").textContent = (mixed ? "Смешанно" : "Диалог " + (dgIndex + 1)) +
+      " · реплика " + (dgLine + 1);
+    $("dg-body").innerHTML =
+      '<div class="quiz-label">Кто это говорит?</div>' +
+      '<div class="card"><div class="card-main">' + escapeHtml(item.line.mt) + "</div></div>" +
+      '<div class="choice-list" id="dg-who">' +
+      '<button class="opt-sentence" data-who="A">A</button>' +
+      '<button class="opt-sentence" data-who="B">B</button></div>';
+  }
+
+  /* --- сборка реплики ---------------------------------------------------- */
+
+  function dgRenderBuild(mixed, d) {
+    var item = null;
+    if (mixed) {
+      if (dgLine >= dgQueue.length) {
+        dgEmpty("Новых реплик сегодня больше нет. Следующее повторение: " +
+                nextDueDate("d:") + ".");
+        return;
+      }
+      item = dgQueue[dgLine];
+    } else {
+      if (!d) { dgEmpty("Выберите диалог."); return; }
+      if (dgLine >= d.lines.length) { dgEmpty("Диалог пройден целиком."); return; }
+      item = { d: d, i: dgLine, uid: dgId(d, dgLine), line: d.lines[dgLine] };
+    }
+    dgCurrent = item;
+    var toks = item.line.mt.split(/\s+/).filter(Boolean).map(function (t) {
+      return { raw: t, clean: t.replace(/^[\u00ab"'(]+|[\u00bb".,!?;:)]+$/g, "") };
+    });
+    dgTokens = toks;
+    dgSetActions(true, false, false);
+    $("dg-reveal").textContent = "Показать реплику";
+    $("dg-counter").textContent = (mixed ? "Смешанно" : "Диалог " + (dgIndex + 1)) +
+      " · реплика " + (dgLine + 1) + " · " + escapeHtml(item.line.who) + " говорит";
+    $("dg-body").innerHTML =
+      '<div class="prompt"><div class="prompt-label">Соберите реплику:</div>' +
+      '<div class="prompt-text">' + escapeHtml(item.line.ru) + "</div></div>" +
+      '<div class="answer" id="dg-build-answer"><span class="placeholder">Нажимайте слова по порядку…</span></div>' +
+      '<div class="chips" id="dg-build-chips">' +
+      shuffle(toks.map(function (_, i) { return i; })).map(function (i) {
+        return '<button class="chip" data-build="' + i + '">' + escapeHtml(toks[i].clean) + "</button>";
+      }).join("") + "</div>";
+  }
+
+  /* --- проверка ответов -------------------------------------------------- */
+
+  function dgBodyClick(e) {
+    if (dgDone) return;
+
+    var mine = e.target.closest(".dg-mine");
+    if (mine) {
+      var ru = mine.parentNode.querySelector('[data-role-ru]');
+      if (ru) ru.classList.remove("hidden");
+      mine.hidden = true;
+      return;
+    }
+
+    var orderBtn = e.target.closest("#dg-order-chips [data-order]");
+    if (orderBtn) { dgPickOrder(Number(orderBtn.dataset.order)); return; }
+
+    var buildBtn = e.target.closest("#dg-build-chips [data-build]");
+    if (buildBtn) { dgPickBuild(Number(buildBtn.dataset.build)); return; }
+
+    var whoBtn = e.target.closest("#dg-who [data-who]");
+    if (whoBtn) {
+      var rightWho = dgCurrent.line.who;
+      var ok = whoBtn.dataset.who === rightWho;
+      Array.prototype.forEach.call($("dg-who").querySelectorAll(".opt-sentence"), function (o) {
+        o.classList.remove("ok", "bad");
+        if (o.dataset.who === rightWho) o.classList.add("ok");
+        else if (o === whoBtn) o.classList.add("bad");
+      });
+      grade(dgCurrent.uid, "dlg", ok);
+      dgFinish(ok, "Верно!", "Не так. Это говорит " + rightWho + ".");
+      return;
+    }
+
+    var replyBtn = e.target.closest("#dg-options .opt-sentence");
+    if (replyBtn) {
+      var d = dg();
+      var pairs = dgReplyPairs(d);
+      var right = d.lines[pairs[dgLine]];
+      var ok2 = replyBtn.dataset.ru === right.ru;
+      Array.prototype.forEach.call($("dg-options").querySelectorAll(".opt-sentence"), function (o) {
+        o.classList.remove("ok", "bad");
+        if (o.dataset.ru === right.ru) o.classList.add("ok");
+        else if (o === replyBtn) o.classList.add("bad");
+      });
+      grade(dgId(d, pairs[dgLine]), "dlg", ok2);
+      dgFinish(ok2, "Верно!", "Не так. Правильно: " + right.mt);
+      return;
+    }
+  }
+
+  function dgPickOrder(i) {
+    if (dgPicked.indexOf(i) !== -1) return;
+    dgPicked.push(i);
+    dgRenderPicked("order", "data-order");
+    if (dgPicked.length === dg().lines.length) dgCheckBuilt();
+  }
+
+  function dgPickBuild(i) {
+    if (dgPicked.indexOf(i) !== -1) return;
+    dgPicked.push(i);
+    dgRenderPicked("build", "data-build");
+    if (dgPicked.length === dgTokens.length) dgCheckBuilt();
+  }
+
+  // Общая отрисовка: в ответе — выбранное по порядку, в подсказках — остальное.
+  function dgRenderPicked(prefix, attr) {
+    var textOf = prefix === "order"
+      ? function (k) { return dg().lines[k].mt; }
+      : function (k) { return dgTokens[k].clean; };
+    $("dg-" + prefix + "-answer").innerHTML = dgPicked.length
+      ? dgPicked.map(function (k) {
+        return '<button class="chip placed" ' + attr + '="' + k + '">' +
+          escapeHtml(textOf(k)) + "</button>";
+      }).join("")
+      : '<span class="placeholder">Нажимайте по порядку…</span>';
+    Array.prototype.forEach.call(
+      $("dg-" + prefix + "-chips").querySelectorAll("[" + attr + "]"), function (b) {
+        b.hidden = dgPicked.indexOf(Number(b.getAttribute(attr))) !== -1;
+      });
   }
 
   function dgReveal() {
-    var d = dg();
-    if (!d || dgMode !== "drill" || dgDone) return;
-    var line = d.lines[dgLine];
-    $("dg-ru").hidden = false;
-    renderTranslit($("dg-tr"), line.mt);
-    $("dg-reveal").hidden = true;
-    $("dg-grade").hidden = false;
+    if (dgDone) return;
+    if (dgMode === "drill" && dgCurrent) {
+      $("dg-ru").hidden = false;
+      renderTranslit($("dg-tr"), dgCurrent.line.mt);
+      dgSetActions(false, false, true);
+      return;
+    }
+    if (dgMode === "build") {
+      dgTokens.forEach(function (t, i) {
+        if (dgPicked.indexOf(i) === -1) dgPicked.push(i);
+      });
+      dgRenderPicked("build", "data-build");
+      dgFinish(false, null, null, true);
+      return;
+    }
+    if (dgMode === "order") {
+      dgPicked = dg().lines.map(function (_, i) { return i; });
+      dgRenderPicked("order", "data-order");
+      dgFinish(false, null, null, true);
+    }
   }
 
   function dgGrade(ok) {
-    var d = dg();
-    if (!d || dgDone) return;
-    dgDone = true;
-    grade(dgId(d, dgLine), "dlg", ok);
-    $("dg-grade").hidden = true;
-    $("dg-forward").hidden = false;
-    $("dg-feedback").textContent = ok ? "Отмечено: знаю" : "Отмечено: не знаю";
-    $("dg-feedback").className = "feedback " + (ok ? "good" : "bad");
-    if (ok) window.setTimeout(function () { if (dgDone) dgNext(); }, 900);
+    if (dgDone || !dgCurrent) return;
+    var item = dgCurrent;
+    grade(item.uid, "dlg", ok);
+    dgFinish(ok, "Отмечено: знаю", "Отмечено: не знаю");
+    // верный ответ уходит сам, как в остальных разделах
+    if (ok) {
+      window.setTimeout(function () {
+        if (dgDone && dgCurrent === item) dgNext();
+      }, 900);
+    }
   }
 
-  function dgBodyClick(e) {
-    var btn = e.target.closest("#dg-options .opt-sentence");
-    if (!btn || dgMode !== "reply" || dgDone) return;
-    var d = dg();
-    var pairs = [];
-    d.lines.forEach(function (l, i) { if (i > 0 && l.who !== d.lines[i - 1].who) pairs.push(i); });
-    var right = d.lines[pairs[dgLine]];
-    var ok = btn.dataset.ru === right.ru;
-    Array.prototype.forEach.call($("dg-options").querySelectorAll(".opt-sentence"), function (o) {
-      o.classList.remove("ok", "bad");
-      if (o.dataset.ru === right.ru) o.classList.add("ok");
-      else if (o === btn) o.classList.add("bad");
-    });
+  function dgFinish(ok, okText, badText, revealed) {
     dgDone = true;
-    grade(dgId(d, pairs[dgLine]), "dlg", ok);
-    $("dg-forward").hidden = false;
-    $("dg-feedback").textContent = ok ? "Верно!" : "Не так. Правильно: " + right.mt;
-    $("dg-feedback").className = "feedback " + (ok ? "good" : "bad");
+    dgSetActions(false, true, false);
+    var el = $("dg-feedback");
+    el.textContent = ok ? okText : (revealed ? "Разбор" : badText);
+    el.className = "feedback " + (ok ? "good" : "bad");
+  }
+
+  // Сверка собранного с правильным порядком.
+  function dgCheckBuilt() {
+    if (dgMode === "build") {
+      var got = dgPicked.map(function (k) { return dgTokens[k].clean; }).join(" ");
+      var ok = norm(got) === norm(dgCurrent.line.mt);
+      grade(dgCurrent.uid, "dlg", ok);
+      dgFinish(ok, "Верно!", "Не так. Правильно: " + dgCurrent.line.mt);
+      return;
+    }
+    if (dgMode === "order") {
+      // порядок — упражнение на диалог целиком, отдельные реплики не оцениваем
+      var d = dg();
+      var ok2 = dgPicked.length === d.lines.length &&
+        dgPicked.every(function (v, i) { return v === i; });
+      dgPicked = d.lines.map(function (_, i) { return i; });
+      dgRenderPicked("order", "data-order");
+      dgFinish(ok2, "Верно!", "Не так — правильный порядок показан выше.");
+    }
   }
 
   function dgNext() {
-    var d = dg();
-    if (!d) return;
     dgLine++;
-    var total = dgMode === "drill" ? d.lines.length :
-      d.lines.filter(function (l, i) { return i > 0 && l.who !== d.lines[i - 1].who; }).length;
-    if (dgLine >= total) dgLine = 0;      // по кругу
+    var d = dg();
+    if (d && !dgMixed()) {
+      var total = dgMode === "drill" || dgMode === "who" || dgMode === "build"
+        ? d.lines.length
+        : (dgMode === "reply" ? dgReplyPairs(d).length : 0);
+      if (total && dgLine >= total) dgLine = 0;
+    }
     dgRender();
   }
 

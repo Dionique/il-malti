@@ -597,7 +597,7 @@ def main():
         page.click('.tab[data-tab="dialogues"]')
         check("REQ-DLG-01 диалоги загружены", page.locator("#dg-pick option").count(),
               predicate=lambda n: n >= 5)
-        check("REQ-DLG-03 три режима диалогов", page.locator("#dg-mode option").count(), 3)
+        check("REQ-DLG-03 режимов диалогов семь", page.locator("#dg-mode option").count(), 7)
         check("REQ-DLG-01 у каждого диалога есть заголовок и реплики", page.evaluate("""() =>
               window.DIALOGUES.every(d => d.title && d.lines && d.lines.length >= 3)"""), True)
         check("REQ-DLG-01 у каждой реплики есть мальтийский и перевод", page.evaluate("""() =>
@@ -618,7 +618,9 @@ def main():
                 return who.size === 2;
               })"""), True)
 
-        # чтение
+        # чтение конкретного диалога (по умолчанию открыт смешанный режим)
+        page.select_option("#dg-pick", "1")
+        page.select_option("#dg-mode", "read")
         lines = page.locator("#dg-body .dlg-line").count()
         check("REQ-DLG-02 в режиме чтения видны все реплики", lines,
               predicate=lambda n: n >= 4)
@@ -631,7 +633,7 @@ def main():
 
         # перевод по репликам
         page.select_option("#dg-mode", "drill")
-        total = page.locator("#dg-pick option").count()
+        total = page.locator("#dg-body .card-main").count()
         check("REQ-DLG-03 в тренировке одна реплика", page.locator("#dg-body .card-main").count(), 1)
         check("REQ-DLG-03 перевод скрыт до нажатия", page.locator("#dg-ru").is_hidden(), True)
         check("REQ-DLG-03 кнопки оценки скрыты до нажатия", page.locator("#dg-grade").is_hidden(), True)
@@ -648,11 +650,12 @@ def main():
         check("REQ-DLG-03 после оценки идём дальше", page.inner_text("#dg-counter") != before, True)
 
         # выбор ответа
+        page.select_option("#dg-pick", "1")
         page.select_option("#dg-mode", "reply")
         check("REQ-DLG-04 показана предыдущая реплика", page.locator("#dg-body .dlg-prev").count(), 1)
         check("REQ-DLG-04 вариантов ответа три", page.locator("#dg-options .opt-sentence").count(), 3)
         check("REQ-DLG-04 есть верный вариант среди них", page.evaluate("""() => {
-              const d = window.DIALOGUES[0];
+              const d = window.DIALOGUES[Number(document.getElementById('dg-pick').value)];
               const pairs = [];
               d.lines.forEach((l, i) => { if (i > 0 && l.who !== d.lines[i-1].who) pairs.push(i); });
               const right = d.lines[pairs[0]].mt;
@@ -677,6 +680,148 @@ def main():
         check("REQ-PROG-04 ответы в диалогах учтены",
               [x for x in kinds if x.startswith("Диалоги") and "ответов: " in x],
               predicate=lambda v: len(v) == 1)
+
+        # --- диалоги: смешанная очередь, лимит и новые задания ---
+        page.evaluate("() => localStorage.clear()")
+        page.reload()
+        page.click('.tab[data-tab="dialogues"]')
+
+        # REQ-DLG-12: прогресс по диалогу виден в списке
+        labels = page.evaluate(
+            "() => [...document.querySelectorAll('#dg-pick option')].map(o => o.textContent)")
+        check("REQ-DLG-12 в списке видно, сколько освоено", labels[1],
+              predicate=lambda s: "/" in s)
+
+        # REQ-DLG-13: в смешанном режиме только совместимые задания
+        modes = page.evaluate("""() => [...document.querySelectorAll('#dg-mode option')]
+              .map(o => [o.value, o.disabled])""")
+        check("REQ-DLG-13 диалоговые задания выключены в смешанном режиме",
+              sorted(k for k, d in modes if d),
+              predicate=lambda v: {"read", "order", "role", "reply"}.issubset(set(v)))
+        check("REQ-DLG-13 в смешанном доступны совместимые задания",
+              sorted(k for k, d in modes if not d), ["build", "drill", "who"])
+        check("REQ-DLG-13 режим переключается на совместимый",
+              page.input_value("#dg-mode"), "drill")
+
+        # REQ-DLG-06: очередь из разных диалогов, просроченные раньше новых
+        check("REQ-DLG-06 в очереди виден диалог и размер", page.inner_text("#dg-counter"),
+              predicate=lambda s: "Смешанно" in s and "из" in s)
+        seen = []
+        for _ in range(6):
+            seen.append(page.inner_text("#dg-counter"))
+            page.click("#dg-reveal")
+            page.click("#dg-yes")
+            page.wait_for_timeout(1000)
+        titles = set(x.split(" · ")[-1] for x in seen)
+        check("REQ-DLG-06 смешанная очередь берёт реплики из разных диалогов",
+              len(titles) > 1, True)
+
+        # REQ-DLG-07: лимит новых реплик в день
+        page.evaluate("() => localStorage.clear()")
+        page.reload()
+        page.click('.tab[data-tab="dialogues"]')
+        page.select_option("#dg-limit", "5")
+        check("REQ-DLG-07 счётчик показывает новый лимит", page.inner_text("#dg-counter"),
+              predicate=lambda s: "из 5" in s)
+        page.reload()
+        page.click('.tab[data-tab="dialogues"]')
+        check("REQ-DLG-07 лимит сохраняется", page.input_value("#dg-limit"), "5")
+        for _ in range(5):
+            page.click("#dg-reveal")
+            page.click("#dg-yes")
+            page.wait_for_timeout(1000)
+        check("REQ-DLG-06 итог очереди вместо повтора с начала", page.locator("#dg-body .done").count(), 1)
+        page.click('.tab[data-tab="words"]')
+        check("REQ-DLG-07 реплики не расходуют чужие лимиты", page.inner_text("#w-counter"),
+              predicate=lambda s: "новых сегодня: 0/10" in s)
+
+        # REQ-DLG-08: порядок реплик
+        page.click('.tab[data-tab="dialogues"]')
+        page.select_option("#dg-pick", "1")
+        page.select_option("#dg-mode", "order")
+        n = page.locator("#dg-order-chips .opt-sentence").count()
+        check("REQ-DLG-08 реплики перемешаны", page.evaluate("""() => {
+              const d = window.DIALOGUES[1];
+              const chips = [...document.querySelectorAll('#dg-order-chips .opt-sentence')]
+                              .map(b => b.textContent);
+              const right = d.lines.map(l => l.mt);
+              return chips.length === right.length &&
+                     new Set(chips).size === chips.length &&
+                     chips.every((c, i) => right.indexOf(c) >= 0);
+            }"""), True)
+        check("REQ-DLG-08 проверка не запускалась до расстановки",
+              page.inner_text("#dg-feedback"), "")
+        for _ in range(n):
+            page.locator("#dg-order-chips .opt-sentence:visible").first.click()
+        check("REQ-DLG-08 проверка запускается сама", page.inner_text("#dg-feedback"),
+              predicate=lambda s: len(s) > 0)
+        check("REQ-DLG-08 после проверки виден правильный порядок",
+              page.evaluate("""() => {
+                const d = window.DIALOGUES[1];
+                const shown = [...document.querySelectorAll('#dg-order-answer .chip')]
+                                .map(b => b.textContent);
+                return shown.join(" ") === d.lines.map(l => l.mt).join(" ");
+              }"""), True)
+
+        # REQ-DLG-09: кто это сказал
+        page.select_option("#dg-mode", "who")
+        check("REQ-DLG-09 есть выбор из двух ролей",
+              page.locator("#dg-who .opt-sentence").count(), 2)
+        page.locator("#dg-who .opt-sentence").first.click()
+        check("REQ-DLG-09 ответ подсвечен", page.locator("#dg-who .ok").count(), 1)
+        check("REQ-DLG-09 ответ назван словами", page.inner_text("#dg-feedback"),
+              predicate=lambda s: len(s) > 0)
+        check("REQ-DLG-09 оценка засчитана", page.evaluate("""() =>
+              Object.keys(JSON.parse(localStorage.getItem('il-malti-v1')).items)
+                .some(k => k.indexOf('d:') === 0)"""), True)
+
+        # REQ-DLG-10: сборка реплики из слов
+        page.select_option("#dg-mode", "build")
+        check("REQ-DLG-10 показан перевод и перемешанные слова",
+              page.evaluate("""() => {
+                const ru = document.querySelector('#dg-body .prompt-text');
+                const chips = document.querySelectorAll('#dg-build-chips .chip');
+                return !!ru && ru.textContent.length > 0 && chips.length >= 2;
+              }"""), True)
+        plan = page.evaluate("""() => {
+              const d = window.DIALOGUES[1];
+              const line = d.lines[0];
+              const strip = t => t.replace(/^[«"'(]+/, '').replace(/[.,!?;:]+$/, '');
+              const toks = line.mt.split(' ').map(strip);
+              const chips = [...document.querySelectorAll('#dg-build-chips .chip')]
+                              .map(c => c.textContent);
+              const used = chips.map(() => false);
+              const idx = toks.map(t => {
+                const i = chips.findIndex((c, j) => !used[j] && c === t);
+                if (i >= 0) used[i] = true;
+                return i;
+              });
+              return idx.some(i => i < 0) ? null : idx;
+            }""")
+        if plan:
+            for i in plan:
+                page.locator("#dg-build-chips .chip").nth(i).click()
+            check("REQ-DLG-10 верная сборка засчитана", page.inner_text("#dg-feedback"), "Верно!")
+        else:
+            check("REQ-DLG-10 проверка запускается сама", page.inner_text("#dg-feedback"),
+                  predicate=lambda s: len(s) > 0)
+
+        # REQ-DLG-11: роль-плей
+        page.select_option("#dg-mode", "role")
+        check("REQ-DLG-11 выбор роли виден только в роль-плее",
+              page.locator("#dg-role-wrap").is_hidden(), False)
+        mine = page.locator("#dg-body .dg-mine").count()
+        check("REQ-DLG-11 мои реплики скрыты и открываются по нажатию",
+              page.locator("#dg-body [data-role-ru]:not(.hidden)").count(), 0)
+        page.locator("#dg-body .dg-mine").first.click()
+        check("REQ-DLG-11 реплика открылась по нажатию",
+              page.locator("#dg-body [data-role-ru]:not(.hidden)").count(), 1)
+        page.select_option("#dg-role", "B")
+        check("REQ-DLG-11 переключение роли меняет набор",
+              page.locator("#dg-body .dg-mine").count() != mine, True)
+        page.select_option("#dg-mode", "read")
+        check("REQ-DLG-11 выбор роли скрыт вне роль-плея",
+              page.locator("#dg-role-wrap").is_hidden(), True)
 
         # --- alphabet ---        # --- alphabet ---
         page.click('.tab[data-tab="alphabet"]')

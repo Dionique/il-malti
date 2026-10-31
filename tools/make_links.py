@@ -75,6 +75,12 @@ ALIASES = {
     "wasalna": "wasal",
     "imur": "mar",
     "jogħġbok": "jekk jogħġbok",
+    "erba'": "erbgħa",
+    "naħsel": "ħasel",
+    "nsajjar": "sajjar",
+    "nixtri": "xtara",
+    "jixtri": "xtara",
+    "nnaddaf": "naddaf",
     "insarraf": "sarraf",
     "tliet": "tlieta",
     "x'": "xiex",
@@ -159,6 +165,10 @@ def forms_of(entry):
         out.add(entry["art"])
     if entry.get("forms"):
         for part in entry["forms"].split(","):
+            out.add(part.strip())
+    # парадигма имперфетта: без неё формы вроде tixtri не находились
+    if entry.get("pres"):
+        for part in entry["pres"].split(","):
             out.add(part.strip())
     return {f for f in out if f}
 

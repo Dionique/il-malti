@@ -475,5 +475,14 @@ window.WORDS = [
   { mt: "bżonn",  ru: "нужда",    topic: "base", pos: "noun", g: "m", art: "il-bżonn" },
   { mt: "temp",   ru: "погода",   topic: "weather", pos: "noun", g: "m", art: "it-temp" },
   { mt: "xiex",   ru: "что",      topic: "qword" },
+  // ---- добавлено для третьей партии диалогов ----
+  { mt: "sajf",      ru: "лето",         topic: "weather", pos: "noun", g: "m", art: "is-sajf" },
+  { mt: "xitwa",     ru: "зима",         topic: "weather", pos: "noun", g: "f", art: "ix-xitwa" },
+  { mt: "festa",     ru: "праздник",     topic: "time",    pos: "noun", g: "f", art: "il-festa" },
+  { mt: "qmis",      ru: "рубашка",      topic: "things",  pos: "noun", g: "m", art: "il-qmis",     pl: "qomos" },
+  { mt: "qalziet",   ru: "брюки",        topic: "things",  pos: "noun", g: "m", art: "il-qalziet" },
+  { mt: "għalliem",  ru: "учитель",      topic: "place",   pos: "noun", g: "m", art: "l-għalliem",  pl: "għalliema" },
+  { mt: "petrol",    ru: "бензин",       topic: "travel",  pos: "noun", g: "m", art: "il-petrol" },
+  { mt: "tabib",     ru: "врач",         topic: "body",    pos: "noun", g: "m", art: "it-tabib",    pl: "tobba" },
 
 ];
