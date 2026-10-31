@@ -276,6 +276,7 @@ def main():
     with open(os.path.join(ROOT, TARGET), "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n")
     print("wrote %s: %d phrases" % (TARGET, len(phrases)))
+    # REQ-DATA-04: транскрипции строятся из словаря и всех источников фраз
     return 0
 
 

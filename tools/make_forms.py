@@ -242,6 +242,7 @@ def main():
     checked = [w for w in words if w.get("pos") == "noun" and w.get("art")]
     bad_articles = validate_articles(words)
     print("проверка правила артикля: %d существительных" % len(checked))
+    # REQ-DATA-01: правило обязано воспроизводить все артикли словаря
     if bad_articles:
         print("  расхождений: %d" % len(bad_articles))
         for mt, have, got in bad_articles[:20]:

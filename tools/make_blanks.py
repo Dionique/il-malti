@@ -210,6 +210,7 @@ def main():
         if s.lower() != it["full"].lower():
             bad.append((it["sent"], s, it["full"]))
     print("упражнений: %d (пропусков: %d)" % (len(out), sum(len(x["blanks"]) for x in out)))
+    # REQ-DATA-02: подстановка ответов даёт полную фразу; REQ-DATA-03: шаблоны различимы
     print("из задания: %d | построено: %d"
           % (len([x for x in out if x["src"] == "workbook"]),
              len([x for x in out if x["src"] == "derived"])))

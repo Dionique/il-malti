@@ -289,6 +289,7 @@ def main():
         fh.write("\n".join(lines) + "\n")
     print()
     print("wrote %s" % TARGET)
+    # REQ-DATA-04: связи фраз со словарём; REQ-SENT-01 зависит от результата
 
     missing = [w for w in links.values() for w in w["words"] if w not in known_targets]
     if missing:

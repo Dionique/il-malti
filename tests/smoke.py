@@ -69,31 +69,31 @@ def main():
         page.on("pageerror", lambda e: console_errors.append("PAGEERROR: %s" % e))
         page.goto(url, wait_until="load")
 
-        check("title", page.title(), predicate=lambda t: "Malti" in t)
+        check("REQ-SHELL-01 title", page.title(), predicate=lambda t: "Malti" in t)
 
         # --- words ---
         # число тем считаем из данных, чтобы тест не устаревал при их добавлении
         topic_count = page.evaluate("() => new Set(window.WORDS.map(w => w.topic)).size")
-        check("words topic options", page.locator("#w-topic option").count(), topic_count + 1)
-        check("default new-words-per-day limit", page.input_value("#w-limit"), "10")
-        check("first queue is capped by the daily limit", page.inner_text("#w-counter"),
+        check("REQ-WORDS-01 words topic options", page.locator("#w-topic option").count(), topic_count + 1)
+        check("REQ-WORDS-01 default new-words-per-day limit", page.input_value("#w-limit"), "10")
+        check("REQ-WORDS-01 first queue is capped by the daily limit", page.inner_text("#w-counter"),
               predicate=lambda s: "В очереди: 10" in s and "новых сегодня: 0/10" in s)
         page.click("#w-show")
         back = page.inner_text("#w-back")
-        check("reveal shows translation", back, predicate=lambda s: len(s.strip()) > 0)
-        check("grade buttons appear", page.locator("#w-grade").is_hidden(), False)
+        check("REQ-WORDS-07 reveal shows translation", back, predicate=lambda s: len(s.strip()) > 0)
+        check("REQ-WORDS-07 grade buttons appear", page.locator("#w-grade").is_hidden(), False)
         page.click("#w-yes")
-        check("queue shrinks and new counter grows", page.inner_text("#w-counter"),
+        check("REQ-WORDS-01 queue shrinks and new counter grows", page.inner_text("#w-counter"),
               predicate=lambda s: "В очереди: 9" in s and "1/10" in s)
         stored = page.evaluate("() => localStorage.getItem('il-malti-v1')")
-        check("progress persisted", stored, predicate=lambda s: s and "items" in s)
-        check("record keeps intro day and due day", stored,
+        check("REQ-SHELL-02 progress persisted", stored, predicate=lambda s: s and "items" in s)
+        check("REQ-WORDS-04 record keeps intro day and due day", stored,
               predicate=lambda s: '"f":' in s and '"b":1' in s)
 
         # direction switch
         page.select_option("#w-dir", "ru-mt")
         page.click("#w-show")
-        check("reverse direction back text", page.inner_text("#w-back"),
+        check("REQ-WORDS-05 reverse direction back text", page.inner_text("#w-back"),
               predicate=lambda s: len(s.strip()) > 0)
         page.select_option("#w-dir", "mt-ru")
 
@@ -111,18 +111,18 @@ def main():
                 break
             page.click("#w-show")
             page.click("#w-yes")
-        check("a word with examples shows them before the answer", with_examples, True)
-        check("the example translation is still hidden", page.locator("#w-examples .ex-ru").count(), 0)
-        check("the target word is highlighted inside the example",
+        check("REQ-EX-01 a word with examples shows them before the answer", with_examples, True)
+        check("REQ-EX-01 the example translation is still hidden", page.locator("#w-examples .ex-ru").count(), 0)
+        check("REQ-EX-02 the target word is highlighted inside the example",
               page.locator("#w-examples .hl").first.inner_text(),
               predicate=lambda s: s and "." not in s and "?" not in s and " " not in s)
         page.click("#w-show")
-        check("revealing adds the example translation",
+        check("REQ-EX-03 revealing adds the example translation",
               page.locator("#w-examples .ex-ru").count(), predicate=lambda n: n >= 1)
         page.locator("#w-examples-toggle").uncheck()
-        check("the examples toggle hides them",
+        check("REQ-EX-04 the examples toggle hides them",
               page.locator("#w-examples .ex-mt").count(), 0)
-        check("examples toggle is persisted",
+        check("REQ-SHELL-03 examples toggle is persisted",
               page.evaluate("() => localStorage.getItem('il-malti-examples')"), "0")
         page.locator("#w-examples-toggle").check()
 
@@ -135,25 +135,25 @@ def main():
               return missing;
             }"""
         )
-        check("every word and sentence has a transcription", coverage, [])
+        check("REQ-TR-01 every word and sentence has a transcription", coverage, [])
         unlinked = page.evaluate(
             "() => Object.values(window.SENTENCE_LINKS).flatMap(v => v.unknown || []).length"
         )
-        check("every sentence token maps to a vocabulary entry", unlinked, 0)
-        check("sentences are linked to the vocabulary",
+        check("REQ-SENT-01 every sentence token maps to a vocabulary entry", unlinked, 0)
+        check("REQ-SENT-01 sentences are linked to the vocabulary",
               page.evaluate("() => Object.keys(window.SENTENCE_LINKS).length"),
               predicate=lambda n: n > 0)
-        check("front transcription on mt-ru", page.inner_text("#w-translit-front"),
+        check("REQ-TR-02 front transcription on mt-ru", page.inner_text("#w-translit-front"),
               predicate=lambda s: "[" in s and len(s) > 4)
         page.select_option("#w-dir", "ru-mt")
-        check("no transcription before reveal (ru-mt)",
+        check("REQ-TR-02 no transcription before reveal (ru-mt)",
               page.locator("#w-translit-front").is_hidden(), True)
         page.click("#w-show")
-        check("transcription after reveal (ru-mt)", page.inner_text("#w-translit-back"),
+        check("REQ-TR-02 transcription after reveal (ru-mt)", page.inner_text("#w-translit-back"),
               predicate=lambda s: "[" in s)
         page.locator("#w-translit").uncheck()
-        check("toggle hides transcription", page.locator("#w-translit-back").is_hidden(), True)
-        check("toggle persisted", page.evaluate("() => localStorage.getItem('il-malti-translit')"), "0")
+        check("REQ-TR-03 toggle hides transcription", page.locator("#w-translit-back").is_hidden(), True)
+        check("REQ-SHELL-03 toggle persisted", page.evaluate("() => localStorage.getItem('il-malti-translit')"), "0")
         page.locator("#w-translit").check()
         page.select_option("#w-dir", "mt-ru")
 
@@ -165,41 +165,41 @@ def main():
             open: Object.values(window.SENTENCE_LINKS)
                     .filter(v => (v.words || []).length <= 1).length
           })""")
-        check("фразы действительно закрыты не все", totals["open"],
+        check("REQ-SENT-02 фразы действительно закрыты не все", totals["open"],
               predicate=lambda n: 0 < n < totals["total"])
-        check("few phrases open on a fresh start", page.inner_text("#s-counter"),
+        check("REQ-SENT-02 few phrases open on a fresh start", page.inner_text("#s-counter"),
               predicate=lambda s: "открыто фраз: %d из %d" % (totals["open"], totals["total"]) in s)
-        check("default new-phrases-per-day limit", page.input_value("#s-limit"), "5")
-        check("familiarity is reported", page.inner_text("#s-counter"),
+        check("REQ-SENT-08 default new-phrases-per-day limit", page.input_value("#s-limit"), "5")
+        check("REQ-SENT-04 familiarity is reported", page.inner_text("#s-counter"),
               predicate=lambda s: "знакомые слова:" in s)
         chips = page.locator("#s-chips .chip")
-        check("build chips rendered", chips.count(), predicate=lambda n: n >= 1)
-        check("new words are named in build mode", page.inner_text("#s-known"),
+        check("REQ-SENT-04 build chips rendered", chips.count(), predicate=lambda n: n >= 1)
+        check("REQ-SENT-04 new words are named in build mode", page.inner_text("#s-known"),
               predicate=lambda s: "Новые слова" in s)
         page.click("#s-reveal")
-        check("reveal fills answer", page.inner_text("#s-feedback"),
+        check("REQ-SENT-04 reveal fills answer", page.inner_text("#s-feedback"),
               predicate=lambda s: s.startswith("Ответ:"))
-        check("answer area filled", page.inner_text("#s-answer"),
+        check("REQ-SENT-04 answer area filled", page.inner_text("#s-answer"),
               predicate=lambda s: len(s.strip()) > 0)
-        check("sentence transcription", page.inner_text("#s-translit"),
+        check("REQ-TR-04 sentence transcription", page.inner_text("#s-translit"),
               predicate=lambda s: "[" in s)
         page.click("#s-next")
 
         # «Выбор перевода»: русская фраза дана, нужно узнать мальтийскую
         page.select_option("#s-mode", "choice")
-        check("choice mode visible", page.locator("#s-choice").is_hidden(), False)
-        check("new words hidden in choice mode", page.inner_text("#s-known"),
+        check("REQ-SENT-05 choice mode visible", page.locator("#s-choice").is_hidden(), False)
+        check("REQ-SENT-05 new words hidden in choice mode", page.inner_text("#s-known"),
               predicate=lambda s: "нажми" in s)
-        check("three translation options",
+        check("REQ-SENT-05 three translation options",
               page.locator("#s-choice-list .opt-sentence").count(), 3)
-        check("the correct sentence is among the options", page.evaluate("""() => {
+        check("REQ-SENT-05 the correct sentence is among the options", page.evaluate("""() => {
               const ru = document.getElementById('s-ru').textContent;
               const s = window.SENTENCES.find(x => x.ru === ru);
               if (!s) return null;
               return [...document.querySelectorAll('#s-choice-list .opt-sentence')]
                        .some(o => o.dataset.mt === s.mt);
             }"""), True)
-        check("варианты не повторяются", page.evaluate("""() => {
+        check("REQ-SENT-05 варианты не повторяются", page.evaluate("""() => {
               const t = [...document.querySelectorAll('#s-choice-list .opt-sentence')]
                           .map(o => o.dataset.mt);
               return new Set(t).size === t.length;
@@ -210,16 +210,16 @@ def main():
             [...document.querySelectorAll('#s-choice-list .opt-sentence')]
               .find(o => o.dataset.mt !== s.mt).click();
           }""")
-        check("a wrong choice is reported", page.inner_text("#s-feedback"),
+        check("REQ-SENT-05 a wrong choice is reported", page.inner_text("#s-feedback"),
               predicate=lambda s: s.startswith("Не так"))
-        check("the correct option is highlighted",
+        check("REQ-SENT-05 the correct option is highlighted",
               page.locator("#s-choice-list .ok").count(), 1)
-        check("the wrong option is marked", page.locator("#s-choice-list .bad").count(), 1)
-        check("no check button needed in choice mode",
+        check("REQ-SENT-05 the wrong option is marked", page.locator("#s-choice-list .bad").count(), 1)
+        check("REQ-SENT-05 no check button needed in choice mode",
               page.locator("#s-check").is_hidden(), True)
-        check("the sentence transcription is shown", page.inner_text("#s-translit"),
+        check("REQ-TR-04 the sentence transcription is shown", page.inner_text("#s-translit"),
               predicate=lambda s: "[" in s)
-        check("после неверного выбора есть кнопка «Дальше»",
+        check("REQ-SENT-09 после неверного выбора есть кнопка «Дальше»",
               page.locator("#s-forward").is_hidden(), False)
 
         # верный выбор уходит дальше сам
@@ -230,9 +230,9 @@ def main():
             [...document.querySelectorAll('#s-choice-list .opt-sentence')]
               .find(o => o.dataset.mt === s.mt).click();
           }""")
-        check("a correct choice is accepted", page.inner_text("#s-feedback"), "Правильно!")
+        check("REQ-SENT-05 a correct choice is accepted", page.inner_text("#s-feedback"), "Правильно!")
         page.wait_for_timeout(1300)
-        check("a correct choice advances by itself",
+        check("REQ-SENT-05 a correct choice advances by itself",
               page.locator("#s-choice-list .ok").count(), 0)
 
         # карточка-переворот: ответ скрыт, пока не нажмёшь
@@ -242,34 +242,34 @@ def main():
               const s = window.SENTENCES.find(x => x.ru === ru);
               return s ? s.mt : null;
             }""")
-        check("в карточке ответ скрыт до переворота",
+        check("REQ-SENT-06 в карточке ответ скрыт до переворота",
               page.inner_text("#s-mt") == secret, False)
-        check("кнопки оценки скрыты до переворота",
+        check("REQ-SENT-06 кнопки оценки скрыты до переворота",
               page.locator("#s-grade").is_hidden(), True)
         page.click("#s-flip")
-        check("клик по карточке показывает ответ", page.inner_text("#s-mt"), secret)
-        check("транскрипция появляется вместе с ответом", page.inner_text("#s-translit"),
+        check("REQ-SENT-06 клик по карточке показывает ответ", page.inner_text("#s-mt"), secret)
+        check("REQ-TR-04 транскрипция появляется вместе с ответом", page.inner_text("#s-translit"),
               predicate=lambda s: "[" in s)
-        check("кнопки оценки появились", page.locator("#s-grade").is_hidden(), False)
-        check("новые слова раскрыты вместе с ответом", page.inner_text("#s-known"),
+        check("REQ-SENT-06 кнопки оценки появились", page.locator("#s-grade").is_hidden(), False)
+        check("REQ-EX-03 новые слова раскрыты вместе с ответом", page.inner_text("#s-known"),
               predicate=lambda s: "Новые слова" in s)
         before = page.inner_text("#s-counter").split("·")[0]
         page.click("#s-yes")
-        check("после оценки кнопки убраны", page.locator("#s-grade").is_hidden(), True)
+        check("REQ-SENT-06 после оценки кнопки убраны", page.locator("#s-grade").is_hidden(), True)
         page.wait_for_timeout(1300)
         after = page.inner_text("#s-counter").split("·")[0]
-        check("«Знаю» уводит к следующей фразе", after != before, True)
-        check("на новой карточке ответ снова скрыт",
+        check("REQ-SENT-06 «Знаю» уводит к следующей фразе", after != before, True)
+        check("REQ-SENT-06 на новой карточке ответ снова скрыт",
               page.inner_text("#s-mt") == secret, False)
-        check("новая карточка снова без кнопок оценки",
+        check("REQ-SENT-06 новая карточка снова без кнопок оценки",
               page.locator("#s-grade").is_hidden(), True)
 
         page.click("#s-flip")
         page.click("#s-no")
         page.wait_for_timeout(1500)
         after2 = page.inner_text("#s-counter").split("·")[0]
-        check("«Не знаю» в карточке тоже уводит дальше", after2 != after, True)
-        check("после «Не знаю» кнопки тоже убраны",
+        check("REQ-SENT-06 «Не знаю» в карточке тоже уводит дальше", after2 != after, True)
+        check("REQ-SENT-06 после «Не знаю» кнопки тоже убраны",
               page.locator("#s-grade").is_hidden(), True)
 
         # --- a topic whose phrases are all locked ---
@@ -277,12 +277,12 @@ def main():
         page.reload()
         page.click('.tab[data-tab="sentences"]')
         page.select_option("#s-topic", label="Семья")
-        check("a topic with no open phrases says so",
+        check("REQ-SENT-03 a topic with no open phrases says so",
               page.inner_text("#s-done-title"), "Фразы пока закрыты")
-        check("the message names the words that would unlock phrases",
+        check("REQ-SENT-03 the message names the words that would unlock phrases",
               page.inner_text("#s-done-text"),
               predicate=lambda s: "Выучи эти слова" in s and "фраза" in s)
-        check("no actions are offered while locked",
+        check("REQ-SENT-03 no actions are offered while locked",
               page.locator("#s-done-actions").is_hidden(), True)
         page.select_option("#s-topic", "all")
 
@@ -292,7 +292,7 @@ def main():
         page.click('.tab[data-tab="sentences"]')
         page.select_option("#s-limit", "0")
         page.select_option("#s-mode", "card")
-        check("all open phrases are queued", page.inner_text("#s-counter"),
+        check("REQ-SENT-08 all open phrases are queued", page.inner_text("#s-counter"),
               predicate=lambda s: "Фраза 1 из %d" % totals["open"] in s)
         failed = page.inner_text("#s-mt")
         page.click("#s-reveal")
@@ -303,27 +303,27 @@ def main():
             page.click("#s-reveal")
             page.click("#s-yes")
         page.wait_for_timeout(1300)      # ждём отложенный автопереход
-        check("failed phrase returned", page.inner_text("#s-counter"),
+        check("REQ-SENT-08 failed phrase returned", page.inner_text("#s-counter"),
               predicate=lambda s: s.startswith("Фраза 1 из 1"))
-        check("it is the same phrase", page.inner_text("#s-mt"), failed)
+        check("REQ-SENT-08 it is the same phrase", page.inner_text("#s-mt"), failed)
         page.click("#s-reveal")
         page.click("#s-yes")
         page.wait_for_timeout(1300)      # ждём отложенный автопереход
-        check("phrases done for today", page.locator("#s-done").is_visible(), True)
-        check("done text reports new phrases", page.inner_text("#s-done-text"),
+        check("REQ-SENT-08 phrases done for today", page.locator("#s-done").is_visible(), True)
+        check("REQ-SENT-08 done text reports new phrases", page.inner_text("#s-done-text"),
               predicate=lambda s: "Новых фраз сегодня: %d" % totals["open"] in s)
 
         # --- learning the vocabulary opens more phrases ---
         page.evaluate("() => localStorage.clear()")
         page.reload()
         page.click('.tab[data-tab="sentences"]')
-        check("open-phrase count matches the data", page.inner_text("#s-counter"),
+        check("REQ-SENT-02 open-phrase count matches the data", page.inner_text("#s-counter"),
               predicate=lambda s: "открыто фраз: %d из %d" % (totals["open"], totals["total"]) in s)
         linked = page.evaluate(
             "() => [...new Set(Object.values(window.SENTENCE_LINKS).flatMap(v => v.words))]"
         )
         word_total = page.evaluate("() => window.WORDS.length")
-        check("фразы используют лишь часть словаря", len(linked),
+        check("REQ-SENT-01 фразы используют лишь часть словаря", len(linked),
               predicate=lambda n: 0 < n < word_total)
         state = {
             "items": {("w:" + mt): {"b": 1, "d": 0, "f": 0} for mt in linked},
@@ -333,7 +333,7 @@ def main():
         page.evaluate("s => localStorage.setItem('il-malti-v1', s)", json.dumps(state))
         page.reload()
         page.click('.tab[data-tab="sentences"]')
-        check("all phrases open once their vocabulary is known",
+        check("REQ-SENT-02 all phrases open once their vocabulary is known",
               page.inner_text("#s-counter"),
               predicate=lambda s: "открыто фраз: %d из %d" % (totals["total"], totals["total"]) in s)
 
@@ -341,8 +341,8 @@ def main():
         page.evaluate("() => localStorage.clear()")
         page.reload()
         page.click('.tab[data-tab="forms"]')
-        check("four morphology modes offered", page.locator("#fm-mode option").count(), 4)
-        check("queue respects the daily limit", page.inner_text("#fm-counter"),
+        check("REQ-FORMS-01 four morphology modes offered", page.locator("#fm-mode option").count(), 4)
+        check("REQ-FORMS-05 queue respects the daily limit", page.inner_text("#fm-counter"),
               predicate=lambda s: "Упражнение 1 из 10" in s and "0/10" in s)
 
         rows_expected_map = {"pair": 3, "agree": 4, "plural": 2, "prep": 3}
@@ -350,18 +350,18 @@ def main():
             page.select_option("#fm-mode", mode)
             # у множественного число вопросов зависит от слова (неисчисляемые -> без перевода)
             if mode == "plural":
-                check("plural: 2 or 3 question rows",
+                check("REQ-FORMS-02 plural: 2 or 3 question rows",
                       page.locator("#fm-quiz .quiz-row").count(),
                       predicate=lambda n: n in (2, 3))
             else:
-                check("%s: question rows" % mode,
+                check("REQ-FORMS-02 %s: question rows" % mode,
                       page.locator("#fm-quiz .quiz-row").count(), rows_expected)
-            check("%s: prompt rendered" % mode, page.inner_text("#fm-prompt"),
+            check("REQ-FORMS-02 %s: prompt rendered" % mode, page.inner_text("#fm-prompt"),
                   predicate=lambda s: len(s.strip()) > 0)
-            check("%s: every row offers choices" % mode,
+            check("REQ-FORMS-02 %s: every row offers choices" % mode,
                   page.evaluate("""() => [...document.querySelectorAll('#fm-quiz .quiz-options')]
                       .every(b => b.querySelectorAll('.opt').length >= 2)"""), True)
-            check("%s: every row has a real correct answer" % mode,
+            check("REQ-FORMS-02 %s: every row has a real correct answer" % mode,
                   page.evaluate("""() => {
                     const rows = JSON.parse(document.getElementById('fm-correct').value);
                     return rows.length > 0 && rows.every(r =>
@@ -379,12 +379,12 @@ def main():
                     const it = window.FORMS.plural.find(x => x.noun === noun);
                     return it ? !!it.ruPl : null;
                   }""")
-                check("plural: перевод показан тогда и только тогда, когда он есть",
+                check("REQ-FORMS-03 plural: перевод показан тогда и только тогда, когда он есть",
                       has_ru_q == bool(needs), True)
             else:
-                check("%s: a translation question is present" % mode, has_ru_q, True)
+                check("REQ-FORMS-03 %s: a translation question is present" % mode, has_ru_q, True)
             page.click("#fm-check")
-            check("%s: incomplete answer rejected" % mode, page.inner_text("#fm-feedback"),
+            check("REQ-FORMS-04 %s: incomplete answer rejected" % mode, page.inner_text("#fm-feedback"),
                   predicate=lambda s: "все пункты" in s)
 
         # неверный ответ по каждому пункту -> режим должен назвать, что не так
@@ -398,11 +398,11 @@ def main():
                   if (el) el.click();
                 }""", r)
             page.click("#fm-check")
-            check("%s: wrong answer is named" % mode, page.inner_text("#fm-feedback"),
+            check("REQ-FORMS-04 %s: wrong answer is named" % mode, page.inner_text("#fm-feedback"),
                   predicate=lambda s: s.startswith("Неверно"))
-            check("%s: correct options are highlighted" % mode,
+            check("REQ-FORMS-04 %s: correct options are highlighted" % mode,
                   page.locator("#fm-quiz .opt.ok").count(), len(rows))
-            check("%s: the answer is shown" % mode, page.inner_text("#fm-answer"),
+            check("REQ-FORMS-04 %s: the answer is shown" % mode, page.inner_text("#fm-answer"),
                   predicate=lambda s: len(s.strip()) > 0)
 
         # верный ответ уходит сам
@@ -414,9 +414,9 @@ def main():
               [...box.querySelectorAll('.opt')].find(o => o.dataset.value === r.correct).click();
             }""", r)
         page.click("#fm-check")
-        check("a fully correct answer is accepted", page.inner_text("#fm-feedback"), "Верно!")
+        check("REQ-FORMS-04 a fully correct answer is accepted", page.inner_text("#fm-feedback"), "Верно!")
         page.wait_for_timeout(1300)
-        check("a correct answer advances by itself", page.inner_text("#fm-counter"),
+        check("REQ-FORMS-04 a correct answer advances by itself", page.inner_text("#fm-counter"),
               predicate=lambda s: "Упражнение 2 из 10" in s)
 
         # старое сохранённое состояние без новых счётчиков не должно ломать вкладку
@@ -424,7 +424,7 @@ def main():
           JSON.stringify({items:{},stats:{word:{ok:1,no:0},sent:{ok:0,no:0}},days:{}}))""")
         page.reload()
         page.click('.tab[data-tab="forms"]')
-        check("state from an older version still works", page.inner_text("#fm-counter"),
+        check("REQ-SHELL-02 state from an older version still works", page.inner_text("#fm-counter"),
               predicate=lambda s: "Упражнение 1" in s)
 
         # --- разбор ошибок: собираем фразу в неверном порядке ---
@@ -464,7 +464,7 @@ def main():
             if plan:
                 break
             page.click("#s-next")
-        check("нашли фразу из трёх и более разных слов",
+        check("REQ-SENT-04 нашли фразу из трёх и более разных слов",
               plan is not None, True)
         # строим верный порядок, но меняем местами первые два слова — ошибка гарантирована
         order = plan["idx"][:]
@@ -472,16 +472,16 @@ def main():
         for i in order:
             page.locator("#s-chips .chip").nth(i).click()
         page.click("#s-check")
-        check("a wrong sentence is reported", page.inner_text("#s-feedback"),
+        check("REQ-SENT-07 a wrong sentence is reported", page.inner_text("#s-feedback"),
               predicate=lambda s: s.startswith("Не так"))
-        check("the diff block appears", page.locator("#s-diff").is_hidden(), False)
+        check("REQ-SENT-07 the diff block appears", page.locator("#s-diff").is_hidden(), False)
         diff = page.inner_text("#s-diff")
-        check("the diff shows both answers", diff,
+        check("REQ-SENT-07 the diff shows both answers", diff,
               predicate=lambda s: "твой ответ" in s and "правильно" in s)
-        check("the diff counts the mismatches", diff,
+        check("REQ-SENT-07 the diff counts the mismatches", diff,
               predicate=lambda s: "Расхождений" in s)
         page.click("#s-next")
-        check("the diff is cleared for the next sentence",
+        check("REQ-SENT-07 the diff is cleared for the next sentence",
               page.locator("#s-diff").is_hidden(), True)
         page.select_option("#s-limit", "5")
 
@@ -489,11 +489,11 @@ def main():
         page.evaluate("() => localStorage.clear()")
         page.reload()
         page.click('.tab[data-tab="sentences"]')
-        check("предложений четыре режима",
+        check("REQ-BLANK-01 предложений четыре режима",
               page.locator("#s-mode option").count(), 4)
         page.select_option("#s-mode", "blanks")
-        check("режим пропусков виден", page.locator("#s-blanks").is_hidden(), False)
-        check("в подписи сказано определить лицо", page.inner_text("#s-prompt-label"),
+        check("REQ-BLANK-01 режим пропусков виден", page.locator("#s-blanks").is_hidden(), False)
+        check("REQ-BLANK-01 в подписи сказано определить лицо", page.inner_text("#s-prompt-label"),
               predicate=lambda s: "лицо" in s)
 
         data = page.evaluate("""() => {
@@ -507,29 +507,29 @@ def main():
                 full: it.full
               };
             }""")
-        check("упражнение найдено в данных", data is not None, True)
-        check("в предложении столько же пропусков",
+        check("REQ-BLANK-01 упражнение найдено в данных", data is not None, True)
+        check("REQ-BLANK-01 в предложении столько же пропусков",
               page.locator("#s-ru .blank-slot").count(), data["blanks"])
-        check("на каждый пропуск своя строка вариантов",
+        check("REQ-BLANK-01 на каждый пропуск своя строка вариантов",
               page.locator("#s-blank-rows .quiz-options").count(), data["blanks"])
-        check("у каждого пропуска три варианта", page.evaluate("""() =>
+        check("REQ-BLANK-02 у каждого пропуска три варианта", page.evaluate("""() =>
               [...document.querySelectorAll('#s-blank-rows .quiz-options')]
                 .every(r => r.querySelectorAll('.opt').length === 3)"""), True)
-        check("варианты внутри пропуска не повторяются", page.evaluate("""() =>
+        check("REQ-BLANK-02 варианты внутри пропуска не повторяются", page.evaluate("""() =>
               [...document.querySelectorAll('#s-blank-rows .quiz-options')]
                 .every(r => { const v = [...r.querySelectorAll('.opt')].map(o => o.dataset.value);
                               return new Set(v).size === v.length; })"""), True)
-        check("верный вариант есть среди предложенных", page.evaluate("""(answers) =>
+        check("REQ-BLANK-02 верный вариант есть среди предложенных", page.evaluate("""(answers) =>
               [...document.querySelectorAll('#s-blank-rows .quiz-options')]
                 .every((r, i) => [...r.querySelectorAll('.opt')]
                   .some(o => o.dataset.value === answers[i]))""", data["answers"]), True)
         # подписи берём из данных, чтобы не зависеть от того, глагол это или существительное
         labels = page.evaluate("() => Object.values(window.BLANK_LABELS)")
-        check("подсказка о форме в вопросе НЕ показана",
+        check("REQ-BLANK-03 подсказка о форме в вопросе НЕ показана",
               any(l in page.inner_text("#s-blank-rows") for l in labels), False)
 
         page.click("#s-check")
-        check("незаполненные пропуски не принимаются", page.inner_text("#s-feedback"),
+        check("REQ-BLANK-04 незаполненные пропуски не принимаются", page.inner_text("#s-feedback"),
               predicate=lambda s: "Заполни все пропуски" in s)
 
         # один пропуск неверный
@@ -543,34 +543,34 @@ def main():
             });
           }""", data["answers"])
         page.click("#s-check")
-        check("неверный ответ посчитан по пропускам", page.inner_text("#s-feedback"),
+        check("REQ-BLANK-04 неверный ответ посчитан по пропускам", page.inner_text("#s-feedback"),
               predicate=lambda s: s.startswith("Неверно: пропусков с ошибкой — 1 из"))
-        check("верные варианты подсвечены", page.locator("#s-blank-rows .opt.ok").count(),
+        check("REQ-BLANK-04 верные варианты подсвечены", page.locator("#s-blank-rows .opt.ok").count(),
               data["blanks"])
-        check("неверный вариант зачёркнут", page.locator("#s-blank-rows .opt.bad").count(), 1)
-        check("пропуски в предложении подсвечены",
+        check("REQ-BLANK-04 неверный вариант зачёркнут", page.locator("#s-blank-rows .opt.bad").count(), 1)
+        check("REQ-BLANK-04 пропуски в предложении подсвечены",
               page.locator("#s-ru .blank-slot.ok").count() + page.locator("#s-ru .blank-slot.bad").count(),
               data["blanks"])
         answer_text = page.inner_text("#s-blank-answer")
-        check("разбор показывает полную фразу", answer_text, predicate=lambda s: data["full"] in s)
-        check("разбор показывает перевод", answer_text, predicate=lambda s: data["ru"] in s)
-        check("разбор называет форму", answer_text,
+        check("REQ-BLANK-05 разбор показывает полную фразу", answer_text, predicate=lambda s: data["full"] in s)
+        check("REQ-BLANK-05 разбор показывает перевод", answer_text, predicate=lambda s: data["ru"] in s)
+        check("REQ-BLANK-05 разбор называет форму", answer_text,
               predicate=lambda s: any(l in s for l in labels))
-        check("разбор объясняет каждую подстановку", answer_text,
+        check("REQ-BLANK-05 разбор объясняет каждую подстановку", answer_text,
               predicate=lambda s: s.count("→") >= data["blanks"])
-        check("разбор даёт транскрипцию", page.inner_text("#s-translit"),
+        check("REQ-TR-04 разбор даёт транскрипцию", page.inner_text("#s-translit"),
               predicate=lambda s: "[" in s)
-        check("после ответа есть кнопка «Дальше»",
+        check("REQ-SENT-09 после ответа есть кнопка «Дальше»",
               page.locator("#s-forward").is_hidden(), False)
 
         # верный ответ уходит сам
         before = page.inner_text("#s-counter").split("·")[0]
         page.click("#s-forward")
-        check("«Дальше» уводит к следующей фразе",
+        check("REQ-SENT-09 «Дальше» уводит к следующей фразе",
               page.inner_text("#s-counter").split("·")[0] != before, True)
-        check("на новой фразе «Дальше» снова скрыта",
+        check("REQ-SENT-09 на новой фразе «Дальше» снова скрыта",
               page.locator("#s-forward").is_hidden(), True)
-        check("подсказка в режиме пропусков подписана внятно",
+        check("REQ-BLANK-06 подсказка в режиме пропусков подписана внятно",
               page.inner_text("#s-reveal"), "Показать ответ")
         data2 = page.evaluate("""() => {
               const sent = document.getElementById('s-ru').textContent;
@@ -583,11 +583,11 @@ def main():
             });
           }""", data2)
         page.click("#s-check")
-        check("все верные ответы принимаются", page.inner_text("#s-feedback"), "Верно!")
+        check("REQ-SENT-04 все верные ответы принимаются", page.inner_text("#s-feedback"), "Верно!")
         page.wait_for_timeout(1300)
-        check("верный ответ уводит к следующей фразе",
+        check("REQ-BLANK-06 верный ответ уводит к следующей фразе",
               page.inner_text("#s-counter").split("·")[0] != before, True)
-        check("на новой фразе пропуски снова пустые",
+        check("REQ-BLANK-06 на новой фразе пропуски снова пустые",
               page.locator("#s-ru .blank-slot.ok").count() +
               page.locator("#s-ru .blank-slot.bad").count(), 0)
 
@@ -595,24 +595,24 @@ def main():
         page.evaluate("() => localStorage.clear()")
         page.reload()
         page.click('.tab[data-tab="dialogues"]')
-        check("диалоги загружены", page.locator("#dg-pick option").count(),
+        check("REQ-DLG-01 диалоги загружены", page.locator("#dg-pick option").count(),
               predicate=lambda n: n >= 5)
-        check("три режима диалогов", page.locator("#dg-mode option").count(), 3)
-        check("у каждого диалога есть заголовок и реплики", page.evaluate("""() =>
+        check("REQ-DLG-03 три режима диалогов", page.locator("#dg-mode option").count(), 3)
+        check("REQ-DLG-01 у каждого диалога есть заголовок и реплики", page.evaluate("""() =>
               window.DIALOGUES.every(d => d.title && d.lines && d.lines.length >= 3)"""), True)
-        check("у каждой реплики есть мальтийский и перевод", page.evaluate("""() =>
+        check("REQ-DLG-01 у каждой реплики есть мальтийский и перевод", page.evaluate("""() =>
               window.DIALOGUES.every(d => d.lines.every(l =>
                 l.mt && l.mt.trim() && l.ru && l.ru.trim()))"""), True)
-        check("внутри диалога переводы не повторяются", page.evaluate("""() =>
+        check("REQ-DLG-01 внутри диалога переводы не повторяются", page.evaluate("""() =>
               window.DIALOGUES.every(d => {
                 const r = d.lines.map(l => l.ru);
                 return new Set(r).size === r.length;
               })"""), True)
-        check("идентификаторы диалогов уникальны", page.evaluate("""() => {
+        check("REQ-DLG-01 идентификаторы диалогов уникальны", page.evaluate("""() => {
               const ids = window.DIALOGUES.map(d => d.id);
               return new Set(ids).size === ids.length;
             }"""), True)
-        check("в каждом диалоге есть обе стороны", page.evaluate("""() =>
+        check("REQ-DLG-01 в каждом диалоге есть обе стороны", page.evaluate("""() =>
               window.DIALOGUES.every(d => {
                 const who = new Set(d.lines.map(l => l.who));
                 return who.size === 2;
@@ -620,11 +620,11 @@ def main():
 
         # чтение
         lines = page.locator("#dg-body .dlg-line").count()
-        check("в режиме чтения видны все реплики", lines,
+        check("REQ-DLG-02 в режиме чтения видны все реплики", lines,
               predicate=lambda n: n >= 4)
-        check("перевод виден", page.locator("#dg-body .dlg-ru").count(), lines)
+        check("REQ-DLG-02 перевод виден", page.locator("#dg-body .dlg-ru").count(), lines)
         page.check("#dg-hide")
-        check("перевод скрывается по переключателю", page.evaluate("""() =>
+        check("REQ-DLG-02 перевод скрывается по переключателю", page.evaluate("""() =>
               [...document.querySelectorAll('#dg-body .dlg-ru')]
                 .every(x => getComputedStyle(x).visibility === 'hidden')"""), True)
         page.uncheck("#dg-hide")
@@ -632,26 +632,26 @@ def main():
         # перевод по репликам
         page.select_option("#dg-mode", "drill")
         total = page.locator("#dg-pick option").count()
-        check("в тренировке одна реплика", page.locator("#dg-body .card-main").count(), 1)
-        check("перевод скрыт до нажатия", page.locator("#dg-ru").is_hidden(), True)
-        check("кнопки оценки скрыты до нажатия", page.locator("#dg-grade").is_hidden(), True)
+        check("REQ-DLG-03 в тренировке одна реплика", page.locator("#dg-body .card-main").count(), 1)
+        check("REQ-DLG-03 перевод скрыт до нажатия", page.locator("#dg-ru").is_hidden(), True)
+        check("REQ-DLG-03 кнопки оценки скрыты до нажатия", page.locator("#dg-grade").is_hidden(), True)
         page.click("#dg-reveal")
-        check("перевод показывается", page.locator("#dg-ru").is_hidden(), False)
-        check("транскрипция показывается", page.inner_text("#dg-tr"),
+        check("REQ-DLG-03 перевод показывается", page.locator("#dg-ru").is_hidden(), False)
+        check("REQ-TR-04 транскрипция показывается", page.inner_text("#dg-tr"),
               predicate=lambda s: "[" in s)
-        check("кнопки оценки появились", page.locator("#dg-grade").is_hidden(), False)
+        check("REQ-SENT-06 кнопки оценки появились", page.locator("#dg-grade").is_hidden(), False)
         before = page.inner_text("#dg-counter")
         page.click("#dg-yes")
-        check("оценка отмечена", page.inner_text("#dg-feedback"),
+        check("REQ-DLG-03 оценка отмечена", page.inner_text("#dg-feedback"),
               predicate=lambda s: "знаю" in s)
         page.wait_for_timeout(1300)
-        check("после оценки идём дальше", page.inner_text("#dg-counter") != before, True)
+        check("REQ-DLG-03 после оценки идём дальше", page.inner_text("#dg-counter") != before, True)
 
         # выбор ответа
         page.select_option("#dg-mode", "reply")
-        check("показана предыдущая реплика", page.locator("#dg-body .dlg-prev").count(), 1)
-        check("вариантов ответа три", page.locator("#dg-options .opt-sentence").count(), 3)
-        check("есть верный вариант среди них", page.evaluate("""() => {
+        check("REQ-DLG-04 показана предыдущая реплика", page.locator("#dg-body .dlg-prev").count(), 1)
+        check("REQ-DLG-04 вариантов ответа три", page.locator("#dg-options .opt-sentence").count(), 3)
+        check("REQ-DLG-04 есть верный вариант среди них", page.evaluate("""() => {
               const d = window.DIALOGUES[0];
               const pairs = [];
               d.lines.forEach((l, i) => { if (i > 0 && l.who !== d.lines[i-1].who) pairs.push(i); });
@@ -660,45 +660,45 @@ def main():
                 .some(o => o.textContent === right);
             }"""), True)
         page.locator("#dg-options .opt-sentence").first.click()
-        check("выбор ответа проверяется", page.inner_text("#dg-feedback"),
+        check("REQ-DLG-04 выбор ответа проверяется", page.inner_text("#dg-feedback"),
               predicate=lambda s: len(s) > 0)
-        check("подсвечен ровно один верный вариант",
+        check("REQ-DLG-04 подсвечен ровно один верный вариант",
               page.locator("#dg-options .ok").count(), 1)
-        check("после ответа есть «Дальше»", page.locator("#dg-forward").is_hidden(), False)
+        check("REQ-DLG-04 после ответа есть «Дальше»", page.locator("#dg-forward").is_hidden(), False)
 
         # прогресс учитывает диалоги
         page.click('.tab[data-tab="progress"]')
         sets = [x.replace("\n", " ") for x in page.evaluate(
             "() => [...document.querySelectorAll('#p-sets .set-row')].map(r => r.innerText)")]
-        check("в прогрессе есть набор «Диалоги»",
+        check("REQ-PROG-03 в прогрессе есть набор «Диалоги»",
               [x for x in sets if x.startswith("Диалоги")], predicate=lambda v: len(v) == 1)
         kinds = [x.replace("\n", " ") for x in page.evaluate(
             "() => [...document.querySelectorAll('#p-kinds .set-row')].map(r => r.innerText)")]
-        check("ответы в диалогах учтены",
+        check("REQ-PROG-04 ответы в диалогах учтены",
               [x for x in kinds if x.startswith("Диалоги") and "ответов: " in x],
               predicate=lambda v: len(v) == 1)
 
         # --- alphabet ---        # --- alphabet ---
         page.click('.tab[data-tab="alphabet"]')
-        check("alphabet cells", page.locator("#alpha-grid .alpha-cell").count(), 30)
-        check("alphabet copy keys", page.locator("#copy-kbd .key").count(), 11)
-        check("transcription legend rows", page.locator("#view-alphabet .legend li").count(), 6)
+        check("REQ-ALPHA-01 alphabet cells", page.locator("#alpha-grid .alpha-cell").count(), 30)
+        check("REQ-ALPHA-02 alphabet copy keys", page.locator("#copy-kbd .key").count(), 11)
+        check("REQ-TR-05 transcription legend rows", page.locator("#view-alphabet .legend li").count(), 6)
 
         # --- progress ---
         page.click('.tab[data-tab="progress"]')
-        check("stat cards", page.locator("#p-stats .stat").count(), 6)
-        check("box rows", page.locator("#p-boxes .box-row").count(), 7)
-        check("progress rows per exercise set", page.locator("#p-sets .set-row").count(), 8)
-        check("answer rows per mode", page.locator("#p-kinds .set-row").count(), 5)
-        check("day rows", page.locator("#p-days .box-row").count(), 7)
+        check("REQ-PROG-01 stat cards", page.locator("#p-stats .stat").count(), 6)
+        check("REQ-PROG-02 box rows", page.locator("#p-boxes .box-row").count(), 7)
+        check("REQ-PROG-03 progress rows per exercise set", page.locator("#p-sets .set-row").count(), 8)
+        check("REQ-PROG-04 answer rows per mode", page.locator("#p-kinds .set-row").count(), 5)
+        check("REQ-PROG-05 day rows", page.locator("#p-days .box-row").count(), 7)
 
         # --- reset ---
         page.on("dialog", lambda d: d.accept())
         page.click("#p-reset")
         page.wait_for_timeout(300)
         cleared = page.evaluate("() => localStorage.getItem('il-malti-v1')")
-        check("reset clears progress", cleared, predicate=lambda s: s and '"items":{}' in s)
-        check("stats reset", page.inner_text("#p-stats"), predicate=lambda s: "0%" in s)
+        check("REQ-SHELL-02 reset clears progress", cleared, predicate=lambda s: s and '"items":{}' in s)
+        check("REQ-SHELL-02 stats reset", page.inner_text("#p-stats"), predicate=lambda s: "0%" in s)
 
         # --- статистика: ответы учитываются во всех режимах ---
         page.evaluate("() => localStorage.clear()")
@@ -718,16 +718,16 @@ def main():
         page.wait_for_timeout(1200)
         page.click('.tab[data-tab="progress"]')
         stats = page.inner_text("#p-stats")
-        check("ответ из «Форм» попал в «Всего ответов»", stats,
+        check("REQ-PROG-04 ответ из «Форм» попал в «Всего ответов»", stats,
               predicate=lambda s: "1\nВсего ответов" in s)
-        check("точность считается по всем режимам", stats,
+        check("REQ-PROG-04 точность считается по всем режимам", stats,
               predicate=lambda s: "100%\nТочность" in s)
         kinds = [x.replace("\n", " ") for x in page.evaluate(
             "() => [...document.querySelectorAll('#p-kinds .set-row')].map(r => r.innerText)")]
-        check("ответ учтён в счётчике своего режима",
+        check("REQ-PROG-04 ответ учтён в счётчике своего режима",
               [k for k in kinds if k.startswith("Согласование") and "ответов: 1" in k],
               predicate=lambda v: len(v) == 1)
-        check("нулевые счётчики остались нулевыми",
+        check("REQ-PROG-04 нулевые счётчики остались нулевыми",
               [k for k in kinds if "Слова" in k and "ответов: 0" in k],
               predicate=lambda v: len(v) == 1)
 
@@ -741,18 +741,18 @@ def main():
         page.click('.tab[data-tab="progress"]')
         boxes = page.evaluate("""() => Object.fromEntries([...document.querySelectorAll('#p-boxes .box-row')]
           .map(r => [r.querySelector('.box-label').textContent, Number(r.querySelector('.box-count').textContent)]))""")
-        check("новых слов осталось на одно меньше", boxes.get("Не начатые"), total_words - 1)
-        check("проваленное слово попало в коробку 0",
+        check("REQ-PROG-02 новых слов осталось на одно меньше", boxes.get("Не начатые"), total_words - 1)
+        check("REQ-PROG-02 проваленное слово попало в коробку 0",
               boxes.get("Коробка 0 (проваленные)"), 1)
-        check("строк в гистограмме — семь", len(boxes), 7)
-        check("«Слов начато» учитывает провал", page.inner_text("#p-stats"),
+        check("REQ-PROG-02 строк в гистограмме — семь", len(boxes), 7)
+        check("REQ-PROG-02 «Слов начато» учитывает провал", page.inner_text("#p-stats"),
               predicate=lambda s: "1 из %d\nСлов начато" % total_words in s)
 
         # (3) у каждого набора упражнений виден свой прогресс
         sets = [x.replace("\n", " ") for x in page.evaluate(
             "() => [...document.querySelectorAll('#p-sets .set-row')].map(r => r.innerText)")]
-        check("прогресс показан по всем наборам", len(sets), 8)
-        check("у наборов видны начатые и «далее»",
+        check("REQ-PROG-03 прогресс показан по всем наборам", len(sets), 8)
+        check("REQ-PROG-03 у наборов видны начатые и «далее»",
               all("начато:" in x and "далее:" in x and "к повторению:" in x for x in sets), True)
 
         # (4) слово со сроком возвращается и показывается РАНЬШЕ новых
@@ -762,8 +762,8 @@ def main():
         page.evaluate("s => localStorage.setItem('il-malti-v1', s)", _json.dumps(due_state))
         page.reload()
         page.click('.tab[data-tab="words"]')
-        check("слово со сроком стоит первым в очереди", page.inner_text("#w-front"), failed_word)
-        check("в очереди есть и новые слова", page.inner_text("#w-counter"),
+        check("REQ-WORDS-02 слово со сроком стоит первым в очереди", page.inner_text("#w-front"), failed_word)
+        check("REQ-WORDS-02 в очереди есть и новые слова", page.inner_text("#w-counter"),
               predicate=lambda s: int(s.split("В очереди: ")[1].split(" ")[0]) > 1)
 
         # (5) когда всё выучено и срок далёкий — очередь пуста, видно когда повторение
@@ -773,14 +773,14 @@ def main():
                                    "stats": {}, "days": {}}))
         page.reload()
         page.click('.tab[data-tab="words"]')
-        check("когда повторять нечего — блок «на сегодня всё»",
+        check("REQ-WORDS-06 когда повторять нечего — блок «на сегодня всё»",
               page.locator("#w-done").is_visible(), True)
-        check("видно, когда следующее повторение", page.inner_text("#w-done-text"),
+        check("REQ-WORDS-06 видно, когда следующее повторение", page.inner_text("#w-done-text"),
               predicate=lambda s: "Следующее повторение" in s and "через" in s)
         page.click('.tab[data-tab="progress"]')
-        check("прогресс видит, что начаты все слова", page.inner_text("#p-stats"),
+        check("REQ-PROG-02 прогресс видит, что начаты все слова", page.inner_text("#p-stats"),
               predicate=lambda s: "%d из %d\nСлов начато" % (total_words, total_words) in s)
-        check("далёкие слова не числятся к повторению", page.inner_text("#p-stats"),
+        check("REQ-PROG-02 далёкие слова не числятся к повторению", page.inner_text("#p-stats"),
               predicate=lambda s: "0\nСлов к повторению сейчас" in s)
 
         # вернуть чистое состояние для следующих блоков
@@ -789,27 +789,27 @@ def main():
 
         # --- daily new-word limit and the "all done" state ---
         page.click('.tab[data-tab="words"]')
-        check("queue rebuilt after reset", page.inner_text("#w-counter"),
+        check("REQ-WORDS-01 queue rebuilt after reset", page.inner_text("#w-counter"),
               predicate=lambda s: "В очереди: 10" in s and "0/10" in s)
         page.select_option("#w-limit", "5")
-        check("changing the limit rebuilds the queue", page.inner_text("#w-counter"),
+        check("REQ-WORDS-01 changing the limit rebuilds the queue", page.inner_text("#w-counter"),
               predicate=lambda s: "В очереди: 5" in s and "0/5" in s)
 
         for _ in range(5):
             page.click("#w-show")
             page.click("#w-yes")
-        check("done block appears when the day is finished",
+        check("REQ-WORDS-06 done block appears when the day is finished",
               page.locator("#w-done").is_visible(), True)
-        check("card is hidden in the done state",
+        check("REQ-WORDS-06 card is hidden in the done state",
               page.locator("#w-card").is_visible(), False)
         done_text = page.inner_text("#w-done-text")
-        check("done text reports today's new words and next review", done_text,
+        check("REQ-WORDS-06 done text reports today's new words and next review", done_text,
               predicate=lambda s: "Новых сегодня: 5 из 5" in s and "Следующее повторение" in s)
 
         page.click("#w-bypass")
-        check("bypass shows the remaining new words", page.inner_text("#w-counter"),
+        check("REQ-WORDS-06 bypass shows the remaining new words", page.inner_text("#w-counter"),
               predicate=lambda s: "сверх лимита" in s and "В очереди: " in s)
-        check("card is back after bypass", page.locator("#w-card").is_visible(), True)
+        check("REQ-WORDS-06 card is back after bypass", page.locator("#w-card").is_visible(), True)
         page.select_option("#w-limit", "10")
 
         # --- wrong answer comes back the same day ---
@@ -822,12 +822,12 @@ def main():
         page.click("#w-show")
         page.click("#w-no")
         failed_first = page.inner_text("#w-front")
-        check("queue keeps only the failed word", page.inner_text("#w-counter"),
+        check("REQ-WORDS-03 queue keeps only the failed word", page.inner_text("#w-counter"),
               predicate=lambda s: "В очереди: 1" in s and "новых сегодня: 5/5" in s)
-        check("the failed word returned", page.inner_text("#w-front"), failed_first)
+        check("REQ-WORDS-03 the failed word returned", page.inner_text("#w-front"), failed_first)
         page.click("#w-show")
         page.click("#w-yes")
-        check("day finishes once the failed word is learned",
+        check("REQ-WORDS-03 day finishes once the failed word is learned",
               page.locator("#w-done").is_visible(), True)
 
         # --- sentence practice must not eat the new-word budget ---
@@ -842,9 +842,9 @@ def main():
             "() => Object.keys(JSON.parse(localStorage.getItem('il-malti-v1')).items)"
             ".filter(k => k.indexOf('s:') === 0).length"
         )
-        check("sentence answers are recorded", sent_records, 3)
+        check("REQ-PROG-04 sentence answers are recorded", sent_records, 3)
         page.click('.tab[data-tab="words"]')
-        check("sentences do not consume the new-word budget", page.inner_text("#w-counter"),
+        check("REQ-WORDS-08 sentences do not consume the new-word budget", page.inner_text("#w-counter"),
               predicate=lambda s: "В очереди: 10" in s and "новых сегодня: 0/10" in s)
 
         browser.close()
@@ -852,7 +852,7 @@ def main():
     if httpd:
         httpd.shutdown()
 
-    check("console errors", console_errors, [])
+    check("REQ-SHELL-04 console errors", console_errors, [])
 
     print()
     if failures:

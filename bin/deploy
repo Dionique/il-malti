@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+#
+# Полный цикл: требования -> данные -> тесты -> сборка -> публикация.
+#
+#   bin/deploy                       проверить всё, ничего не публиковать
+#   bin/deploy -m "сообщение"        + закоммитить и запушить
+#
+# Соответствие требованиям (specs/):
+#   REQ-DATA-01  правило артикля воспроизводит артикли словаря
+#   REQ-DATA-02  фраза собирается из ответов
+#   REQ-DATA-03  шаблоны пропусков различимы
+#   REQ-DATA-04  транскрипции и связи генерируются
+#   REQ-DLG-01   у каждой реплики диалога есть перевод
+#   REQ-DLG-05   лексика диалогов есть в словаре
+#   REQ-DEPLOY-01 только рабочие файлы попадают в публикацию
+#   REQ-DEPLOY-02 исходники не отдаются наружу
+#   REQ-DEPLOY-03 публикация завершается проверкой сборки именно этого коммита
+#   REQ-DEPLOY-04 тесты прогоняются против живого сайта
+
+set -euo pipefail
+
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$REPO"
+
+MSG=""
+if [ "${1:-}" = "-m" ]; then MSG="${2:?нужно сообщение коммита}"; fi
+
+SITE="https://dionique.github.io/il-malti/"
+REPO_SLUG="Dionique/il-malti"
+
+step() { printf '\n=== %s ===\n' "$1"; }
+
+step "1/8 требования и тесты"
+python3 tools/check_specs.py
+
+step "2/8 генерация данных"
+python3 tools/make_transcription.py
+python3 tools/make_links.py
+python3 tools/make_forms.py --check          # REQ-DATA-01
+python3 tools/make_forms.py
+python3 tools/make_blanks.py                 # REQ-DATA-02, REQ-DATA-03
+python3 tools/check_dialogues.py             # REQ-DLG-01, REQ-DLG-05
+
+step "3/8 тесты локально"
+python3 tests/smoke.py > /tmp/deploy-local.txt 2>&1 || { tail -20 /tmp/deploy-local.txt; exit 1; }
+grep -c '^\[ok' /tmp/deploy-local.txt | sed 's/^/  проверок пройдено: /'
+
+step "4/8 сборка (REQ-DEPLOY-01)"
+./bin/build > /dev/null
+./bin/build --out docs > /dev/null
+python3 tests/smoke.py --root dist > /tmp/deploy-dist.txt 2>&1 || { tail -20 /tmp/deploy-dist.txt; exit 1; }
+echo "  бандл dist/ проверен целиком"
+
+step "5/8 allowlist локального сервера (REQ-DEPLOY-02)"
+if curl -fsS -o /dev/null --max-time 3 http://maltese.localhost:8080/index.html 2>/dev/null; then
+  for p in /server.js /tools/make_pairs.py /tests/smoke.py /.gitignore; do
+    code=$(curl -sS -o /dev/null -w '%{http_code}' "http://maltese.localhost:8080$p")
+    printf '  %-24s %s\n' "$p" "$code"
+    [ "$code" = "404" ] || { echo "  ошибка: $p отдаётся наружу"; exit 1; }
+  done
+else
+  echo "  локальный сервер не запущен — пропускаю (bin/maltese start)"
+fi
+
+if [ -z "$MSG" ]; then
+  step "готово"
+  echo "  всё проверено, публикация не выполнялась (нужен -m \"сообщение\")"
+  exit 0
+fi
+
+step "6/8 коммит и push"
+git add -A
+if [ -z "$(git diff --cached --name-only)" ]; then
+  echo "  изменений нет, коммит не нужен"
+else
+  git commit -q -m "$MSG"
+  git push origin main 2>&1 | tail -1
+fi
+
+HEAD_SHA=$(git rev-parse --short HEAD)
+
+step "7/8 ожидание сборки Pages именно этого коммита (REQ-DEPLOY-03)"
+ok=0
+for _ in $(seq 1 40); do
+  out=$(gh api "repos/$REPO_SLUG/pages/builds/latest" 2>/dev/null \
+        | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('status'), (d.get('commit') or '')[:7])" 2>/dev/null || true)
+  st=${out%% *}; sha=${out##* }
+  if [ "$st" = "built" ] && [ "$sha" = "$HEAD_SHA" ]; then ok=1; break; fi
+  sleep 15
+done
+if [ "$ok" != "1" ]; then echo "  не дождались сборки $HEAD_SHA"; exit 1; fi
+echo "  Pages собрал $HEAD_SHA"
+
+step "8/8 тесты против живого сайта (REQ-DEPLOY-04)"
+python3 tests/smoke.py --url "$SITE" > /tmp/deploy-live.txt 2>&1 || { tail -20 /tmp/deploy-live.txt; exit 1; }
+grep -c '^\[ok' /tmp/deploy-live.txt | sed 's/^/  проверок на сайте: /'
+
+printf '\n=== опубликовано ===\n  %s\n  %s\n' "$SITE" "https://github.com/$REPO_SLUG"
