@@ -679,7 +679,10 @@ def main():
               const pairs = [];
               d.lines.forEach((l, i) => { if (i > 0 && l.who !== d.lines[i-1].who) pairs.push(i); });
               const right = d.lines[pairs[0]];
-              const isQ = t => /\?\s*$/.test(t.trim());
+              const isQ = t => {
+                const first = t.trim().match(/^[^.?!]*[.?!]/) || [t];
+                return /\?\s*$/.test(first[0]);
+              };
               const opts = [...document.querySelectorAll('#dg-options .opt-sentence')]
                              .map(o => o.textContent);
               return opts.every(o => isQ(o) === isQ(right.mt));
