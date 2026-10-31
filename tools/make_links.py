@@ -290,6 +290,11 @@ def main():
     print()
     print("wrote %s" % TARGET)
     # REQ-DATA-04: связи фраз со словарём; REQ-SENT-01 зависит от результата
+    # REQ-SENT-01: непривязанный токен — это слово, которого ученик не выучит,
+    # поэтому это ошибка, а не предупреждение
+    if unknown_total:
+        print("ОШИБКА REQ-SENT-01: непривязанных токенов %d" % unknown_total)
+        return 1
 
     missing = [w for w in links.values() for w in w["words"] if w not in known_targets]
     if missing:

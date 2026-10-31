@@ -196,7 +196,7 @@ def main():
         tpl.setdefault(it["sent"], []).append(it["blanks"][0]["hint"])
     clashes = {k: v for k, v in tpl.items() if len(set(v)) > 1}
     if clashes:
-        print("ОДИНАКОВЫЕ ШАБЛОНЫ с разными подсказками: %d" % len(clashes))
+        print("ОШИБКА REQ-DATA-03: одинаковые шаблоны с разными подсказками: %d" % len(clashes))
         for k, v in list(clashes.items())[:5]:
             print("   %s -> %s" % (k, v))
         return 1
@@ -215,7 +215,7 @@ def main():
           % (len([x for x in out if x["src"] == "workbook"]),
              len([x for x in out if x["src"] == "derived"])))
     if bad:
-        print("РАСХОЖДЕНИЙ: %d" % len(bad))
+        print("ОШИБКА REQ-DATA-02: шаблон не сходится с ответами, расхождений %d" % len(bad))
         for s, got, want in bad[:5]:
             print("   %s -> %s ≠ %s" % (s, got, want))
         return 1

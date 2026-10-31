@@ -244,7 +244,7 @@ def main():
     print("проверка правила артикля: %d существительных" % len(checked))
     # REQ-DATA-01: правило обязано воспроизводить все артикли словаря
     if bad_articles:
-        print("  расхождений: %d" % len(bad_articles))
+        print("  ОШИБКА REQ-DATA-01: расхождений %d" % len(bad_articles))
         for mt, have, got in bad_articles[:20]:
             print("    %-14s в словаре %-16s правило даёт %s" % (mt, have, got))
     else:

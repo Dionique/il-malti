@@ -1065,7 +1065,7 @@ window.IPA_DATA = {
   "Qabel tidħol xi mkien, tħabbat il-bieb.": { ipa: "[ˈʔabɛl ˈtidħɔl ʃi mkiɛn, ˈtħabbat il-biɛp.]", ru: "а́бэл ти́дхол ши мкиен, тха́ббат ил-биеп." },
   "Dawn huma tfal.": { ipa: "[dawn ˈuma tfal.]", ru: "даўн у́ма тфал." },
   "It-toroq huma nodfa.": { ipa: "[it-ˈtɔrɔʔ ˈuma ˈnɔdfa.]", ru: "ит-то́роъ у́ма но́дфа." },
-  "Jien nilbes sew.": { ipa: "[jiɛn ˈnilbɛs sɛw.]", ru: "иен ни́лбэс сэў." },
+  "Jien NILBES sew.": { ipa: "[jiɛn ˈnilbɛs sɛw.]", ru: "иен ни́лбэс сэў." },
   "Inti tilbes sew.": { ipa: "[ˈinti ˈtilbɛs sɛw.]", ru: "и́нти ти́лбэс сэў." },
   "It-tifel jilbes sew.": { ipa: "[it-ˈtifɛl ˈjilbɛs sɛw.]", ru: "ит-ти́фэл и́лбэс сэў." },
   "Il-mara tilbes sew.": { ipa: "[il-ˈmara ˈtilbɛs sɛw.]", ru: "ил-ма́ра ти́лбэс сэў." },

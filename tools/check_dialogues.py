@@ -41,9 +41,9 @@ def main():
     problems = []
 
     if len(mts) != len(rus):
-        problems.append("число реплик и переводов не совпадает")
+        problems.append("REQ-DLG-01: число реплик и переводов не совпадает")
     if any(not r.strip() for r in rus):
-        problems.append("есть пустые переводы")
+        problems.append("REQ-DLG-01: есть пустые переводы")
 
     def known(low):
         if low in ml.IGNORED:
@@ -68,7 +68,7 @@ def main():
 
     print("слов в репликах: %d" % total)
     if unknown:
-        problems.append("нет в словаре: " + ", ".join(sorted(unknown)))
+        problems.append("REQ-DLG-05: нет в словаре: " + ", ".join(sorted(unknown)))
     else:
         print("все слова диалогов есть в словаре")
 
