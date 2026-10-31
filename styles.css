@@ -470,6 +470,23 @@ textarea { width: 100%; resize: vertical; min-height: 64px; }
 
 .dlg-ru.hidden { visibility: hidden; }
 
+.dg-ans {
+  padding: 10px 12px;
+  background: var(--bg);
+  border-radius: 10px;
+  margin-top: 8px;
+}
+
+.dg-ans:first-child { margin-top: 0; }
+
+.dg-ans-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
 .dlg-prev {
   padding: 12px 14px;
   background: var(--panel);

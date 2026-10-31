@@ -1711,6 +1711,8 @@
   function dgReset() {
     dgDone = false;
     dgPicked = [];
+    $("dg-answer").hidden = true;
+    $("dg-answer").innerHTML = "";
     dgCurrent = null;
     dgTokens = [];
     $("dg-feedback").textContent = "";
@@ -1870,12 +1872,27 @@
     var idx = pairs[dgLine];
     var prev = d.lines[idx - 1];
     var right = d.lines[idx];
-    var pool = [];
+    // REQ-DLG-15: дистрактор того же вида, что и верный ответ, иначе на вопрос
+    // предлагается ответ-вопрос, а на утверждение — вопрос.
+    // Тип определяем по первому предложению: «Jisimni Anna. U int?» — это
+    // ответ, а не вопрос, хотя и кончается знаком вопроса.
+    function isQuestion(l) {
+      var first = (l.mt.trim().match(/^[^.?!]*[.?!]/) || [l.mt])[0];
+      return /\?\s*$/.test(first);
+    }
+    var wantQuestion = isQuestion(right);
+    var same = [], other = [];
     DIALOGUES.forEach(function (o) {
       if (o.id === d.id) return;
-      o.lines.forEach(function (l) { if (l.ru !== right.ru) pool.push(l); });
+      o.lines.forEach(function (l) {
+        if (l.ru === right.ru) return;
+        (isQuestion(l) === wantQuestion ? same : other).push(l);
+      });
     });
-    var options = shuffle([right].concat(shuffle(pool).slice(0, 2)));
+    // сначала берём только подходящие по типу; любого типа — лишь если их мало
+    var picks = shuffle(same).slice(0, 2);
+    if (picks.length < 2) picks = picks.concat(shuffle(other).slice(0, 2 - picks.length));
+    var options = shuffle([right].concat(picks));
     $("dg-counter").textContent = "Диалог " + (dgIndex + 1) + " · ответ " +
       (dgLine + 1) + " из " + pairs.length;
     $("dg-body").innerHTML =
@@ -1982,7 +1999,8 @@
         else if (o === whoBtn) o.classList.add("bad");
       });
       grade(dgCurrent.uid, "dlg", ok);
-      dgFinish(ok, "Верно!", "Не так. Это говорит " + rightWho + ".");
+      dgFinish(ok, "Верно!", "Не так. Это говорит " + rightWho + ".",
+        dgAnsHtml(dgCurrent.line.mt, dgCurrent.line.ru, "реплика " + rightWho));
       return;
     }
 
@@ -1998,7 +2016,11 @@
         else if (o === replyBtn) o.classList.add("bad");
       });
       grade(dgId(d, pairs[dgLine]), "dlg", ok2);
-      dgFinish(ok2, "Верно!", "Не так. Правильно: " + right.mt);
+      var html = dgAnsHtml(right.mt, right.ru, "правильный ответ");
+      if (!ok2) {
+        html += dgAnsHtml(replyBtn.textContent, replyBtn.dataset.ru, "вы выбрали");
+      }
+      dgFinish(ok2, "Верно!", "Не так", html);
       return;
     }
   }
@@ -2047,13 +2069,17 @@
         if (dgPicked.indexOf(i) === -1) dgPicked.push(i);
       });
       dgRenderPicked("build", "data-build");
-      dgFinish(false, null, null, true);
+      dgFinish(false, null, "Разбор",
+        dgAnsHtml(dgCurrent.line.mt, dgCurrent.line.ru, "правильная реплика"));
       return;
     }
     if (dgMode === "order") {
-      dgPicked = dg().lines.map(function (_, i) { return i; });
+      var dd = dg();
+      dgPicked = dd.lines.map(function (_, i) { return i; });
       dgRenderPicked("order", "data-order");
-      dgFinish(false, null, null, true);
+      dgFinish(false, null, "Разбор", dd.lines.map(function (l, i) {
+        return dgAnsHtml(l.mt, l.ru, (i + 1) + ". " + l.who);
+      }).join(""));
     }
   }
 
@@ -2070,12 +2096,23 @@
     }
   }
 
-  function dgFinish(ok, okText, badText, revealed) {
+  // REQ-DLG-14: после ответа показываем перевод фразы, а при ошибке — ещё и
+  // перевод выбранного варианта, иначе выбранное остаётся набором слов.
+  function dgAnsHtml(mt, ru, label) {
+    return '<div class="dg-ans"><div class="dg-ans-label">' + escapeHtml(label) + "</div>" +
+      '<div class="dlg-mt">' + escapeHtml(mt) + "</div>" +
+      '<div class="dlg-ru">' + escapeHtml(ru || "") + "</div></div>";
+  }
+
+  function dgFinish(ok, okText, badText, answerHtml) {
     dgDone = true;
     dgSetActions(false, true, false);
     var el = $("dg-feedback");
-    el.textContent = ok ? okText : (revealed ? "Разбор" : badText);
+    el.textContent = ok ? okText : badText;
     el.className = "feedback " + (ok ? "good" : "bad");
+    var box = $("dg-answer");
+    box.innerHTML = answerHtml || "";
+    box.hidden = !answerHtml;
   }
 
   // Сверка собранного с правильным порядком.
@@ -2084,7 +2121,9 @@
       var got = dgPicked.map(function (k) { return dgTokens[k].clean; }).join(" ");
       var ok = norm(got) === norm(dgCurrent.line.mt);
       grade(dgCurrent.uid, "dlg", ok);
-      dgFinish(ok, "Верно!", "Не так. Правильно: " + dgCurrent.line.mt);
+      var html = dgAnsHtml(dgCurrent.line.mt, dgCurrent.line.ru, "правильная реплика");
+      if (!ok) html += dgAnsHtml(got, "", "вы собрали");
+      dgFinish(ok, "Верно!", "Не так", html);
       return;
     }
     if (dgMode === "order") {
@@ -2094,7 +2133,10 @@
         dgPicked.every(function (v, i) { return v === i; });
       dgPicked = d.lines.map(function (_, i) { return i; });
       dgRenderPicked("order", "data-order");
-      dgFinish(ok2, "Верно!", "Не так — правильный порядок показан выше.");
+      dgFinish(ok2, "Верно!", "Не так — правильный порядок ниже.",
+        d.lines.map(function (l, i) {
+          return dgAnsHtml(l.mt, l.ru, (i + 1) + ". " + l.who);
+        }).join(""));
     }
   }
 

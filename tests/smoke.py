@@ -667,6 +667,27 @@ def main():
               predicate=lambda s: len(s) > 0)
         check("REQ-DLG-04 подсвечен ровно один верный вариант",
               page.locator("#dg-options .ok").count(), 1)
+        ans = page.inner_text("#dg-answer")
+        right_ru = page.evaluate("""() => {
+              const d = window.DIALOGUES[Number(document.getElementById('dg-pick').value)];
+              const pairs = [];
+              d.lines.forEach((l, i) => { if (i > 0 && l.who !== d.lines[i-1].who) pairs.push(i); });
+              return d.lines[pairs[0]].ru;
+            }""")
+        check("REQ-DLG-15 на утверждение предлагаются утверждения", page.evaluate("""() => {
+              const d = window.DIALOGUES[Number(document.getElementById('dg-pick').value)];
+              const pairs = [];
+              d.lines.forEach((l, i) => { if (i > 0 && l.who !== d.lines[i-1].who) pairs.push(i); });
+              const right = d.lines[pairs[0]];
+              const isQ = t => /\?\s*$/.test(t.trim());
+              const opts = [...document.querySelectorAll('#dg-options .opt-sentence')]
+                             .map(o => o.textContent);
+              return opts.every(o => isQ(o) === isQ(right.mt));
+            }"""), True)
+        check("REQ-DLG-14 в выборе ответа виден перевод правильной фразы",
+              right_ru in ans, True)
+        check("REQ-DLG-14 при ошибке виден перевод выбранного варианта",
+              page.locator("#dg-answer .dg-ans").count(), predicate=lambda n: n >= 1)
         check("REQ-DLG-04 после ответа есть «Дальше»", page.locator("#dg-forward").is_hidden(), False)
 
         # прогресс учитывает диалоги
@@ -762,6 +783,13 @@ def main():
                                 .map(b => b.textContent);
                 return shown.join(" ") === d.lines.map(l => l.mt).join(" ");
               }"""), True)
+        check("REQ-DLG-14 в порядке виден перевод каждой реплики",
+              page.evaluate("""() => {
+                const d = window.DIALOGUES[1];
+                const boxes = [...document.querySelectorAll('#dg-answer .dg-ans')];
+                return boxes.length === d.lines.length &&
+                       boxes.every((b, i) => b.innerText.indexOf(d.lines[i].ru) >= 0);
+              }"""), True)
 
         # REQ-DLG-09: кто это сказал
         page.select_option("#dg-mode", "who")
@@ -771,6 +799,12 @@ def main():
         check("REQ-DLG-09 ответ подсвечен", page.locator("#dg-who .ok").count(), 1)
         check("REQ-DLG-09 ответ назван словами", page.inner_text("#dg-feedback"),
               predicate=lambda s: len(s) > 0)
+        check("REQ-DLG-14 в «кто сказал» виден перевод реплики",
+              page.evaluate("""() => {
+                const ans = document.getElementById('dg-answer');
+                const ru = ans.querySelector('.dlg-ru');
+                return !!ru && ru.textContent.trim().length > 0;
+              }"""), True)
         check("REQ-DLG-09 оценка засчитана", page.evaluate("""() =>
               Object.keys(JSON.parse(localStorage.getItem('il-malti-v1')).items)
                 .some(k => k.indexOf('d:') === 0)"""), True)
@@ -802,6 +836,11 @@ def main():
             for i in plan:
                 page.locator("#dg-build-chips .chip").nth(i).click()
             check("REQ-DLG-10 верная сборка засчитана", page.inner_text("#dg-feedback"), "Верно!")
+            check("REQ-DLG-14 в сборке виден перевод реплики",
+                  page.evaluate("""() => {
+                    const ru = document.querySelector('#dg-answer .dlg-ru');
+                    return !!ru && ru.textContent.trim().length > 0;
+                  }"""), True)
         else:
             check("REQ-DLG-10 проверка запускается сама", page.inner_text("#dg-feedback"),
                   predicate=lambda s: len(s) > 0)
