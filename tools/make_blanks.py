@@ -145,8 +145,164 @@ DERIVE = [
 RU_KEY = {"1s": 0, "2s": 1, "3m": 2, "3f": 2, "1p": 3, "2p": 4, "3p": 5}
 
 
+# ---- род и артикль ---------------------------------------------------------
+# Шаблоны уникальны (иначе REQ-DATA-03 не даст их различить), а формы слов
+# берутся из data/words.js — артикль и множественное сверены с Викисловарём,
+# поэтому выдумывать их тут нельзя.
+
+# русские формы прилагательного: м, ж
+RU_ADJ = {
+    "kbir":  ("большой", "большая"),
+    "żgħir": ("маленький", "маленькая"),
+    "ġdid":  ("новый", "новая"),
+    "nadif": ("чистый", "чистая"),
+    "qadim": ("старый", "старая"),
+    "sabiħ": ("красивый", "красивая"),
+}
+
+# (шаблон, слово, что подставляем, перевод, пояснение)
+GENDER_NOUN_ITEMS = [
+    ("{0} hija kbira.",  "dar",    "sg_art", "Дом большой.",
+     "артикль перед dar — il-, хотя слово начинается с d"),
+    ("{0} huwa kbir.",   "ktieb",  "sg_art", "Книга большая.",
+     "артикль il- перед k"),
+    ("Din hija {0}.",    "belt",   "sg_art", "Это город.",
+     "din — женский род, значит hija"),
+    ("Dan huwa {0}.",    "ħanut",  "sg_art", "Это магазин.",
+     "dan — мужской род, значит huwa"),
+    ("Fejn hi {0}?",     "kamra",  "sg_art", "Где комната?",
+     "вопрос о женском роде: hi"),
+    ("Fejn hu {0}?",     "siġġu",  "sg_art", "Где стул?",
+     "вопрос о мужском роде: hu"),
+    ("Nixtri {0}.",      "ħobż",   "sg_art", "Я покупаю хлеб.",
+     "артикль перед ħobż — il-, ассимиляции нет"),
+    ("Nara {0}.",        "karozza","sg_art", "Я вижу машину.",
+     "артикль перед karozza — il-"),
+    ("Dawn huma {0} biss.", "tazza", "pl", "Это только чашки.",
+     "множественное число: tazza → tazzi"),
+    ("Hawn {0} ħafna.",  "karozza","pl",    "Здесь много машин.",
+     "множественное число: karozza → karozzi"),
+    ("{0} huwa ġdid.",   "siġġu",  "sg_art", "Стул новый.",
+     "артикль перед siġġu — is-, ассимиляция s"),
+    ("Nixtri {0} illum.", "qmis",  "sg_art", "Я покупаю рубашку сегодня.",
+     "артикль перед qmis — il-"),
+    ("Nara {0} kbira.",  "dar",    "sg_art", "Я вижу большой дом.",
+     "dar — женский род, поэтому kbira"),
+    ("Fejn hu {0} kbir?", "ħanut", "sg_art", "Где большой магазин?",
+     "ħanut — мужской род, поэтому kbir"),
+]
+
+# (существительное, прилагательное, род) — предложение строится само
+ADJ_ITEMS = [
+    ("kamra", "nadif", "f"),
+    ("ktieb", "ġdid", "m"),
+    ("belt",  "kbir",  "f"),
+    ("ilma",  "nadif", "m"),
+    ("qmis",  "ġdid",  "m"),
+    ("tazza", "nadif", "f"),
+    ("mejda", "kbir",  "f"),
+    ("siġġu", "qadim", "m"),
+]
+
+
+def load_words():
+    """Словарь: mt -> {pos, g, art, pl, forms, ru} (артикль и мн.ч. — из данных)."""
+    out = {}
+    text = open(os.path.join(ROOT, "data/words.js"), encoding="utf-8").read()
+    for line in text.splitlines():
+        m = re.search(r'\{ mt: "([^"]+)"', line)
+        if not m:
+            continue
+        rec = {"mt": m.group(1)}
+        for f in ("ru", "pos", "g", "art", "pl", "forms"):
+            fm = re.search(r'%s:\s*"([^"]*)"' % f, line)
+            if fm:
+                rec[f] = fm.group(1)
+        out[rec["mt"]] = rec
+    return out
+
+
+def clean_ru(text):
+    return re.sub(r"\s*\([^)]*\)", "", text.split(",")[0].strip())
+
+
+def gender_items(words, problems):
+    """Новые упражнения на род и артикль; формы — из словаря."""
+    items = []
+
+    def noun_forms(w, need_pl):
+        if not w.get("art"):
+            return None
+        forms = {"sg_art": w["art"], "sg": w["mt"]}
+        if w.get("pl"):
+            forms["pl"] = w["pl"]
+        if need_pl and "pl" not in forms:
+            return None
+        return forms
+
+    def adj_forms(w):
+        forms = [x.strip() for x in (w.get("forms") or "").split(",") if x.strip()]
+        if len(forms) < 2:
+            return None
+        return {"m": w["mt"], "f": forms[0], "pl": forms[1]}
+
+    for row in GENDER_NOUN_ITEMS:
+        tmpl, mt, key, ru = row[0], row[1], row[2], row[3]
+        note = row[4] if len(row) > 4 else None
+        w = words.get(mt)
+        if not w or w.get("pos") != "noun":
+            problems.append("нет существительного: %s" % mt)
+            continue
+        forms = noun_forms(w, key == "pl")
+        if not forms:
+            problems.append("нет артикля или мн.ч.: %s" % mt)
+            continue
+        FORMS[mt] = forms
+        item = {
+            "sent": tmpl,
+            "blanks": [{"hint": mt, "key": key}],
+            "full": tmpl.replace("{0}", forms[key]),
+            "ru": ru,
+            "src": "gender",
+        }
+        if note:
+            item["note"] = note
+        items.append(item)
+
+    for noun_mt, adj_mt, g in ADJ_ITEMS:
+        n, a = words.get(noun_mt), words.get(adj_mt)
+        if not n or not a or n.get("pos") != "noun" or a.get("pos") != "adj":
+            problems.append("нет пары: %s + %s" % (noun_mt, adj_mt))
+            continue
+        if n.get("g") != g:
+            problems.append("род не совпал: %s — %s, а не %s" % (noun_mt, n.get("g"), g))
+            continue
+        forms = adj_forms(a)
+        if not forms or adj_mt not in RU_ADJ:
+            problems.append("нет форм прилагательного: %s" % adj_mt)
+            continue
+        FORMS[adj_mt] = forms
+        cop = "hija" if g == "f" else "huwa"
+        subj = n["art"][0].upper() + n["art"][1:]
+        items.append({
+            "sent": "%s %s {0}." % (subj, cop),
+            "blanks": [{"hint": adj_mt, "key": g}],
+            "full": "%s %s %s." % (subj, cop, forms[g]),
+            "ru": "%s %s." % (clean_ru(n["ru"])[0].upper() + clean_ru(n["ru"])[1:],
+                              RU_ADJ[adj_mt][0 if g == "m" else 1]),
+            "src": "gender",
+            "note": "прилагательное согласуется с существительным: %s — %s"
+                    % (noun_mt, "ж. род" if g == "f" else "м. род"),
+        })
+    return items
+
+
 def build():
     items = []
+    problems = []
+    items += gender_items(load_words(), problems)
+    for p in problems:
+        print("  пропуск:", p, file=sys.stderr)
 
     for row in WORKBOOK:
         sent, blanks, full, ru = row[0], row[1], row[2], row[3]
@@ -211,9 +367,10 @@ def main():
             bad.append((it["sent"], s, it["full"]))
     print("упражнений: %d (пропусков: %d)" % (len(out), sum(len(x["blanks"]) for x in out)))
     # REQ-DATA-02: подстановка ответов даёт полную фразу; REQ-DATA-03: шаблоны различимы
-    print("из задания: %d | построено: %d"
+    print("из задания: %d | построено: %d | род и артикль: %d"
           % (len([x for x in out if x["src"] == "workbook"]),
-             len([x for x in out if x["src"] == "derived"])))
+             len([x for x in out if x["src"] == "derived"]),
+             len([x for x in out if x["src"] == "gender"])))
     if bad:
         print("ОШИБКА REQ-DATA-02: шаблон не сходится с ответами, расхождений %d" % len(bad))
         for s, got, want in bad[:5]:

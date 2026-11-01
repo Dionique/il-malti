@@ -409,11 +409,11 @@ def main():
         page.evaluate("() => localStorage.clear()")
         page.reload()
         page.click('.tab[data-tab="forms"]')
-        check("REQ-FORMS-01 five morphology modes offered", page.locator("#fm-mode option").count(), 5)
+        check("REQ-FORMS-01 six morphology modes offered", page.locator("#fm-mode option").count(), 6)
         check("REQ-FORMS-05 queue respects the daily limit", page.inner_text("#fm-counter"),
               predicate=lambda s: "Упражнение 1 из 10" in s and "0/10" in s)
 
-        for mode, rows_expected in (("pair", 3), ("agree", 4), ("gender", 2), ("plural", 2), ("prep", 3)):
+        for mode, rows_expected in (("pair", 3), ("agree", 4), ("adjagree", 3), ("gender", 2), ("plural", 2), ("prep", 3)):
             page.select_option("#fm-mode", mode)
             # у множественного число вопросов зависит от слова (неисчисляемые -> без перевода)
             if mode == "plural":
@@ -455,7 +455,7 @@ def main():
                   predicate=lambda s: "все пункты" in s)
 
         # неверный ответ по каждому пункту -> режим должен назвать, что не так
-        for mode in ("pair", "agree", "gender", "plural", "prep"):
+        for mode in ("pair", "agree", "adjagree", "gender", "plural", "prep"):
             page.select_option("#fm-mode", mode)
             rows = page.evaluate("() => JSON.parse(document.getElementById('fm-correct').value)")
             for r in rows:
@@ -471,6 +471,32 @@ def main():
                   page.locator("#fm-quiz .opt.ok").count(), len(rows))
             check("REQ-FORMS-04 %s: the answer is shown" % mode, page.inner_text("#fm-answer"),
                   predicate=lambda s: len(s.strip()) > 0)
+
+        # режим «Согласование: сущ + прил»: форма прилагательного зависит от рода
+        page.select_option("#fm-mode", "adjagree")
+        check("REQ-FORMS-07 прил+сущ: вариантов формы не меньше двух",
+              page.evaluate("""() => {
+                const rows = JSON.parse(document.getElementById('fm-correct').value);
+                const r = rows.find(x => x.key === 'adjForm');
+                return r ? document.querySelectorAll(
+                  '#fm-quiz .quiz-options[data-key="adjForm"] .opt').length >= 2 : false;
+              }"""), True)
+        check("REQ-FORMS-07 прил+сущ: у прилагательного есть форма ж. р.",
+              page.evaluate("() => window.FORMS.adjagree.every(x => x.adjOptions.length >= 2)"), True)
+        check("REQ-FORMS-07 прил+сущ: ж. р. даёт другую форму",
+              page.evaluate("""() => window.FORMS.adjagree.every(x =>
+                x.gender === 'm' ? x.adjForm === x.adjOptions[0] : x.adjForm !== x.adjOptions[0])"""), True)
+        aa_rows = page.evaluate("() => JSON.parse(document.getElementById('fm-correct').value)")
+        for r in aa_rows:
+            page.evaluate("""r => {
+              const box = document.querySelector("#fm-quiz .quiz-options[data-key='" + r.key + "']");
+              [...box.querySelectorAll('.opt')].find(o => o.dataset.value === r.correct).click();
+            }""", r)
+        page.click("#fm-check")
+        check("REQ-FORMS-07 прил+сущ: верный ответ принят", page.inner_text("#fm-feedback"), "Верно!")
+        check("REQ-FORMS-07 прил+сущ: разбор называет форму и перевод",
+              page.inner_text("#fm-answer"),
+              predicate=lambda s: "прилаг." in s and "род" in s)
 
         # режим «Род»: спрашивает только м/ж, у каждого слова есть ответ и перевод
         page.select_option("#fm-mode", "gender")
@@ -676,6 +702,35 @@ def main():
         page.wait_for_timeout(1300)
         check("REQ-BLANK-06 верный ответ уводит к следующей фразе",
               page.inner_text("#s-counter").split("·")[0] != before, True)
+        # --- набор пропусков на род и артикль ---
+        check("REQ-BLANK-07 пропусков на род и артикль не меньше двадцати",
+              page.evaluate("() => window.BLANKS.filter(x => x.src === 'gender').length"),
+              predicate=lambda n: n >= 20)
+        check("REQ-BLANK-07 у каждого есть пояснение",
+              page.evaluate("""() => window.BLANKS.filter(x => x.src === 'gender')
+                  .every(x => !!x.note)"""), True)
+        check("REQ-BLANK-07 ответ подставляется в шаблон",
+              page.evaluate("""() => window.BLANKS.filter(x => x.src === 'gender').every(x => {
+                  const b = x.blanks[0];
+                  const v = (window.BLANK_FORMS[b.hint] || {})[b.key];
+                  return !!v && x.sent.replace('{0}', v) === x.full;
+                })"""), True)
+        check("REQ-BLANK-07 артикль и множественное взяты из словаря",
+              page.evaluate("""() => {
+                  const w = {}; window.WORDS.forEach(x => w[x.mt] = x);
+                  return window.BLANKS.filter(x => x.src === 'gender').every(x => {
+                    const b = x.blanks[0];
+                    const v = (window.BLANK_FORMS[b.hint] || {})[b.key];
+                    const a = w[b.hint];
+                    if (!a) return false;
+                    if (b.key === 'sg_art') return v === a.art;
+                    if (b.key === 'pl') return v === a.pl;
+                    const forms = [a.mt].concat((a.forms || '').split(',')
+                                    .map(s => s.trim()).filter(Boolean));
+                    return forms.indexOf(v) !== -1;
+                  });
+                }"""), True)
+
         check("REQ-BLANK-06 на новой фразе пропуски снова пустые",
               page.locator("#s-ru .blank-slot.ok").count() +
               page.locator("#s-ru .blank-slot.bad").count(), 0)

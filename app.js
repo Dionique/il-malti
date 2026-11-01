@@ -1216,10 +1216,10 @@
     });
   }
 
-  /* ---------- формы: 5 режимов (сочетание / согласование / род / мн.ч. / предлоги) ---------- */
+  /* ---------- формы: 6 режимов (сочетание / согласование / сущ+прил / род / мн.ч. / предлоги) ---------- */
 
   var PAIRS = window.PAIRS || [];
-  var FORMS = window.FORMS || { agreement: [], gender: [], plural: [], prep: [] };
+  var FORMS = window.FORMS || { agreement: [], adjagree: [], gender: [], plural: [], prep: [] };
   var DEFAULT_FM_LIMIT = 10;
 
   var GENDER_CHOICES = [
@@ -1247,6 +1247,13 @@
       kind: "form",
       source: function () { return FORMS.agreement || []; },
       key: function (it) { return it.phrase; }
+    },
+    adjagree: {
+      label: "Согласование: сущ + прил",
+      prefix: "fA:",
+      kind: "form",
+      source: function () { return FORMS.adjagree || []; },
+      key: function (it) { return it.subject + "+" + it.adj; }
     },
     plural: {
       label: "Множественное число",
@@ -1360,6 +1367,9 @@
       if (mode === "pair") parts = [part(it.subject), part(it.verbMt)];
       return parts.join('<span class="pair-plus">+</span>');
     }
+    if (mode === "adjagree") {
+      return part(it.subject) + '<span class="pair-plus">+</span>' + part(it.adj);
+    }
     if (mode === "gender") {
       return part(it.subject) + '<span class="pair-plus">→ род?</span>';
     }
@@ -1396,6 +1406,15 @@
       rows.push({ key: "verbForm", label: "3. Форма глагола (" + escapeHtml(it.verb) + ")", options: vals(it.verbOptions), correct: it.verbForm });
       rows.push({ key: "ru", label: "4. Перевод фразы",
                   options: vals([it.ru].concat(distractors(it.ru, others, 2))), correct: it.ru });
+    } else if (mode === "adjagree") {
+      var aadjs = FM_MODES.adjagree.list.map(function (x) { return x.data; });
+      rows.push({ key: "gender", label: "1. Род существительного",
+                  options: GENDER_ONLY_CHOICES, correct: it.gender });
+      rows.push({ key: "adjForm", label: "2. Форма прилагательного",
+                  options: vals(it.adjOptions), correct: it.adjForm });
+      rows.push({ key: "adjRu", label: "3. Перевод прилагательного",
+                  options: vals(shuffle([it.adjRu].concat(distractors(it.adjRu, aadjs, 2, "adjRu")))),
+                  correct: it.adjRu });
     } else if (mode === "gender") {
       var gnouns = FM_MODES.gender.list.map(function (x) { return x.data; });
       rows.push({ key: "gender", label: "1. Род существительного",
@@ -1577,6 +1596,11 @@
         '<div class="pair-answer-ru">' + escapeHtml(it.ru) + "</div>" +
         '<div class="pair-answer-ru">' + escapeHtml(it.subject) + " — " + GENDER_LABEL[it.gender] +
         " · прилаг. " + escapeHtml(it.adjForm) + " · глаг. " + escapeHtml(it.verbForm) + "</div>";
+    }
+    if (mode === "adjagree") {
+      return '<div class="pair-answer">' + escapeHtml(it.subject) + " " + escapeHtml(it.adjForm) + "</div>" +
+        '<div class="pair-answer-ru">' + escapeHtml(it.nounRu) + " — " + GENDER_LABEL[it.gender] +
+        " · прилаг. " + escapeHtml(it.adjForm) + " — " + escapeHtml(it.adjRu) + "</div>";
     }
     if (mode === "gender") {
       return '<div class="pair-answer">' + escapeHtml(it.subject) + " — " + GENDER_LABEL[it.gender] + "</div>" +

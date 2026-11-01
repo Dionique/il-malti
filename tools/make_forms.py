@@ -317,6 +317,34 @@ def main():
             "ru": ru,
         })
 
+    # ---------- согласование прилагательного ----------
+    # сущ + прил, без глагола: форма прилагательного зависит только от рода.
+    # Спрашиваем форму и перевод прилагательного, поэтому русская фраза не
+    # собирается — иначе пришлось бы склонять русское прилагательное.
+    adjagree = []
+    changeable = [a for a in words if a.get("pos") == "adj" and a.get("forms")]
+    gendered = [n for n in words if n.get("pos") == "noun" and n.get("g") and n.get("art")]
+    for i, a in enumerate(changeable):
+        forms = adj_forms(a)
+        if len(forms) < 2:
+            continue
+        adj_ru = re.sub(r"\s*\([^)]*\)", "", a["ru"].split(",")[0].strip())
+        for j, g in enumerate(("m", "f")):
+            group = [n for n in gendered if n["g"] == g]
+            if not group:
+                continue
+            n = group[(i * 2 + j) % len(group)]
+            adjagree.append({
+                "subject": n["art"],
+                "noun": n["mt"],
+                "nounRu": re.sub(r"\s*\([^)]*\)", "", n["ru"].split(",")[0].strip()),
+                "adj": a["mt"],
+                "adjRu": adj_ru,
+                "gender": n["g"],
+                "adjForm": forms[0] if g == "m" else forms[1],
+                "adjOptions": forms[:3],
+            })
+
     # ---------- множественное ----------
     nouns = [w for w in words
              if w.get("pos") == "noun" and w.get("pl") and w.get("g")]
@@ -384,7 +412,8 @@ def main():
             "gender": n["g"],
         })
 
-    data = {"agreement": agreement, "gender": gender, "plural": plural, "prep": prep}
+    data = {"agreement": agreement, "adjagree": adjagree, "gender": gender,
+            "plural": plural, "prep": prep}
 
     if sample:
         print("=== согласование (%d) ===" % len(agreement))
@@ -394,6 +423,12 @@ def main():
                   % (it["gender"], it["adjForm"], it["verbForm"],
                      " / ".join(it["adjOptions"]), " / ".join(it["verbOptions"])))
             print("     перевод: %s" % it["ru"])
+        print()
+        print("=== согласование прилагательного (%d) ===" % len(adjagree))
+        for it in adjagree[:8]:
+            print("  %-14s + %-10s -> %-10s (%s)   перевод: %s / %s"
+                  % (it["subject"], it["adj"], it["adjForm"], it["gender"],
+                     it["nounRu"], it["adjRu"]))
         print()
         print("=== род (%d) ===" % len(gender))
         for it in gender[:8]:
@@ -415,7 +450,7 @@ def main():
         return 0
 
     lines = ["window.FORMS = {"]
-    for key in ("agreement", "gender", "plural", "prep"):
+    for key in ("agreement", "adjagree", "gender", "plural", "prep"):
         lines.append("  %s: [" % key)
         for it in data[key]:
             lines.append("    " + json.dumps(it, ensure_ascii=False) + ",")
@@ -423,8 +458,8 @@ def main():
     lines.append("};")
     with open(os.path.join(ROOT, TARGET), "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n")
-    print("записано %s: согласование %d, род %d, мн.ч. %d, предлоги %d"
-          % (TARGET, len(agreement), len(gender), len(plural), len(prep)))
+    print("записано %s: согласование %d, прил+сущ %d, род %d, мн.ч. %d, предлоги %d"
+          % (TARGET, len(agreement), len(adjagree), len(gender), len(plural), len(prep)))
     return 0
 
 
