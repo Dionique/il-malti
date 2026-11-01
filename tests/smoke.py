@@ -16,12 +16,15 @@ import http.server
 import json
 import os
 import socketserver
+import subprocess
 import sys
 import threading
 
 from playwright.sync_api import sync_playwright
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# каталог исходников: не меняется при --root (в dist/ нет tools/)
+REPO = ROOT
 # --root DIR serves another directory (e.g. the built dist/ bundle)
 if "--root" in sys.argv:
     ROOT = os.path.abspath(sys.argv[sys.argv.index("--root") + 1])
@@ -96,6 +99,43 @@ def main():
         check("REQ-WORDS-05 reverse direction back text", page.inner_text("#w-back"),
               predicate=lambda s: len(s.strip()) > 0)
         page.select_option("#w-dir", "mt-ru")
+
+        # --- род на карточке слова (REQ-WORDS-09) ---
+        page.evaluate("() => localStorage.clear()")
+        page.reload()
+        page.select_option("#w-limit", "0")
+        card_gender = ""
+        for _ in range(40):
+            if page.locator("#w-show").is_hidden():
+                break
+            page.click("#w-show")
+            detail = page.inner_text("#w-back-detail")
+            if "Род:" in detail:
+                card_gender = detail
+                break
+            page.click("#w-yes")
+        check("REQ-WORDS-09 род существительного показан на карточке", card_gender,
+              predicate=lambda s: "Род: м." in s or "Род: ж." in s)
+
+        # --- сверка форм с Викисловарём (REQ-DATA-05) ---
+        dump = os.environ.get("KAIKKI_MT", "/tmp/kaikki-mt.jsonl")
+        if os.path.exists(dump):
+            proc = subprocess.run([sys.executable, os.path.join(REPO, "tools/check_forms_against_wiki.py"), dump],
+                                  cwd=REPO, capture_output=True, text=True)
+            check("REQ-DATA-05 сверка с Викисловарём: расхождений нет", proc.returncode, 0)
+        else:
+            print("  [пропуск] REQ-DATA-05: выгрузки Викисловаря нет, только выборка")
+        drifted = page.evaluate("""() => {
+            const w = {}; window.WORDS.forEach(x => w[x.mt] = x);
+            const want = { jum: "jiem", tifla: "bniet", "wi\u010b\u010b": "w\u010bu\u0127",
+                           bank: "banek", mera: "mirja", nanna: "nanniet", lejl: "ljieli" };
+            const bad = [];
+            for (const k in want) if (!w[k] || w[k].pl !== want[k]) bad.push(k);
+            if (w.ewro && w.ewro.pl) bad.push("ewro");
+            if (w.nadif && !/nodfa/.test(w.nadif.forms || "")) bad.push("nadif");
+            return bad;
+          }""")
+        check("REQ-DATA-05 исправленные формы не откатились", drifted, [])
 
         # --- example sentences on the word card ---
         page.evaluate("() => localStorage.clear()")
@@ -341,12 +381,11 @@ def main():
         page.evaluate("() => localStorage.clear()")
         page.reload()
         page.click('.tab[data-tab="forms"]')
-        check("REQ-FORMS-01 four morphology modes offered", page.locator("#fm-mode option").count(), 4)
+        check("REQ-FORMS-01 five morphology modes offered", page.locator("#fm-mode option").count(), 5)
         check("REQ-FORMS-05 queue respects the daily limit", page.inner_text("#fm-counter"),
               predicate=lambda s: "Упражнение 1 из 10" in s and "0/10" in s)
 
-        rows_expected_map = {"pair": 3, "agree": 4, "plural": 2, "prep": 3}
-        for mode, rows_expected in (("pair", 3), ("agree", 4), ("plural", 2), ("prep", 3)):
+        for mode, rows_expected in (("pair", 3), ("agree", 4), ("gender", 2), ("plural", 2), ("prep", 3)):
             page.select_option("#fm-mode", mode)
             # у множественного число вопросов зависит от слова (неисчисляемые -> без перевода)
             if mode == "plural":
@@ -388,7 +427,7 @@ def main():
                   predicate=lambda s: "все пункты" in s)
 
         # неверный ответ по каждому пункту -> режим должен назвать, что не так
-        for mode in ("pair", "agree", "plural", "prep"):
+        for mode in ("pair", "agree", "gender", "plural", "prep"):
             page.select_option("#fm-mode", mode)
             rows = page.evaluate("() => JSON.parse(document.getElementById('fm-correct').value)")
             for r in rows:
@@ -404,6 +443,28 @@ def main():
                   page.locator("#fm-quiz .opt.ok").count(), len(rows))
             check("REQ-FORMS-04 %s: the answer is shown" % mode, page.inner_text("#fm-answer"),
                   predicate=lambda s: len(s.strip()) > 0)
+
+        # режим «Род»: спрашивает только м/ж, у каждого слова есть ответ и перевод
+        page.select_option("#fm-mode", "gender")
+        check("REQ-FORMS-06 род: вариантов ровно два (м/ж)",
+              page.locator('#fm-quiz .quiz-options[data-key="gender"] .opt').count(), 2)
+        check("REQ-FORMS-06 род: среди вариантов нет «мн. ч.»",
+              page.evaluate("""() => [...document.querySelectorAll('#fm-quiz .quiz-options[data-key="gender"] .opt')]
+                  .every(o => o.textContent.trim() !== 'мн. ч.')"""), True)
+        check("REQ-FORMS-06 род: род определён у всех слов режима",
+              page.evaluate("() => window.FORMS.gender.every(x => x.gender === 'm' || x.gender === 'f')"), True)
+        check("REQ-FORMS-06 род: у каждого слова есть перевод",
+              page.evaluate("() => window.FORMS.gender.every(x => !!x.nounRu)"), True)
+        gen_rows = page.evaluate("() => JSON.parse(document.getElementById('fm-correct').value)")
+        for r in gen_rows:
+            page.evaluate("""r => {
+              const box = document.querySelector("#fm-quiz .quiz-options[data-key='" + r.key + "']");
+              [...box.querySelectorAll('.opt')].find(o => o.dataset.value === r.correct).click();
+            }""", r)
+        page.click("#fm-check")
+        check("REQ-FORMS-06 род: верный ответ принят", page.inner_text("#fm-feedback"), "Верно!")
+        check("REQ-FORMS-06 род: разбор называет род",
+              page.inner_text("#fm-answer"), predicate=lambda s: "род" in s)
 
         # верный ответ уходит сам
         page.select_option("#fm-mode", "agree")
@@ -875,7 +936,9 @@ def main():
         page.click('.tab[data-tab="progress"]')
         check("REQ-PROG-01 stat cards", page.locator("#p-stats .stat").count(), 6)
         check("REQ-PROG-02 box rows", page.locator("#p-boxes .box-row").count(), 7)
-        check("REQ-PROG-03 progress rows per exercise set", page.locator("#p-sets .set-row").count(), 8)
+        check("REQ-PROG-03 progress rows per exercise set",
+              page.locator("#p-sets .set-row").count(),
+              page.locator("#fm-mode option").count() + 4)
         check("REQ-PROG-04 answer rows per mode", page.locator("#p-kinds .set-row").count(), 5)
         check("REQ-PROG-05 day rows", page.locator("#p-days .box-row").count(), 7)
 
@@ -938,7 +1001,8 @@ def main():
         # (3) у каждого набора упражнений виден свой прогресс
         sets = [x.replace("\n", " ") for x in page.evaluate(
             "() => [...document.querySelectorAll('#p-sets .set-row')].map(r => r.innerText)")]
-        check("REQ-PROG-03 прогресс показан по всем наборам", len(sets), 8)
+        check("REQ-PROG-03 прогресс показан по всем наборам", len(sets),
+              page.locator("#fm-mode option").count() + 4)
         check("REQ-PROG-03 у наборов видны начатые и «далее»",
               all("начато:" in x and "далее:" in x and "к повторению:" in x for x in sets), True)
 

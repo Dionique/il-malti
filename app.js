@@ -455,8 +455,9 @@
 
     var detail = $("w-back-detail");
     detail.innerHTML = "";
-    if (wDir === "mt-ru" && (w.art || w.pl || w.forms)) {
+    if (wDir === "mt-ru" && (w.g || w.art || w.pl || w.forms)) {
       var bits = [];
+      if (w.g) bits.push("Род: " + (w.g === "f" ? "ж." : "м."));
       if (w.art) bits.push("Артикль: " + escapeHtml(w.art));
       if (w.pl) bits.push("Мн. ч.: " + escapeHtml(w.pl));
       if (w.forms) bits.push("Формы: " + escapeHtml(w.forms));
@@ -1198,10 +1199,10 @@
     });
   }
 
-  /* ---------- формы: 4 режима (сочетание / согласование / мн.ч. / предлоги) ---------- */
+  /* ---------- формы: 5 режимов (сочетание / согласование / род / мн.ч. / предлоги) ---------- */
 
   var PAIRS = window.PAIRS || [];
-  var FORMS = window.FORMS || { agreement: [], plural: [], prep: [] };
+  var FORMS = window.FORMS || { agreement: [], gender: [], plural: [], prep: [] };
   var DEFAULT_FM_LIMIT = 10;
 
   var GENDER_CHOICES = [
@@ -1210,6 +1211,10 @@
     { value: "pl", label: "мн. ч." }
   ];
   var GENDER_LABEL = { m: "м. род", f: "ж. род", pl: "мн. ч." };
+  var GENDER_ONLY_CHOICES = [
+    { value: "m", label: "м. род" },
+    { value: "f", label: "ж. род" }
+  ];
 
   var FM_MODES = {
     pair: {
@@ -1231,6 +1236,13 @@
       prefix: "fp:",
       kind: "form",
       source: function () { return FORMS.plural || []; },
+      key: function (it) { return it.noun; }
+    },
+    gender: {
+      label: "Род существительного",
+      prefix: "fg:",
+      kind: "form",
+      source: function () { return FORMS.gender || []; },
       key: function (it) { return it.noun; }
     },
     prep: {
@@ -1331,6 +1343,9 @@
       if (mode === "pair") parts = [part(it.subject), part(it.verbMt)];
       return parts.join('<span class="pair-plus">+</span>');
     }
+    if (mode === "gender") {
+      return part(it.subject) + '<span class="pair-plus">→ род?</span>';
+    }
     if (mode === "plural") {
       return part(it.noun) + '<span class="pair-plus">→ мн. ч.</span>';
     }
@@ -1364,6 +1379,13 @@
       rows.push({ key: "verbForm", label: "3. Форма глагола (" + escapeHtml(it.verb) + ")", options: vals(it.verbOptions), correct: it.verbForm });
       rows.push({ key: "ru", label: "4. Перевод фразы",
                   options: vals([it.ru].concat(distractors(it.ru, others, 2))), correct: it.ru });
+    } else if (mode === "gender") {
+      var gnouns = FM_MODES.gender.list.map(function (x) { return x.data; });
+      rows.push({ key: "gender", label: "1. Род существительного",
+                  options: GENDER_ONLY_CHOICES, correct: it.gender });
+      rows.push({ key: "ru", label: "2. Перевод",
+                  options: vals(shuffle([it.nounRu].concat(distractors(it.nounRu, gnouns, 2, "nounRu")))),
+                  correct: it.nounRu });
     } else if (mode === "plural") {
       var nouns = FM_MODES.plural.list.map(function (x) { return x.data; });
       rows.push({ key: "plural", label: "1. Множественное число", options: vals(it.pluralOptions), correct: it.plural });
@@ -1538,6 +1560,10 @@
         '<div class="pair-answer-ru">' + escapeHtml(it.ru) + "</div>" +
         '<div class="pair-answer-ru">' + escapeHtml(it.subject) + " — " + GENDER_LABEL[it.gender] +
         " · прилаг. " + escapeHtml(it.adjForm) + " · глаг. " + escapeHtml(it.verbForm) + "</div>";
+    }
+    if (mode === "gender") {
+      return '<div class="pair-answer">' + escapeHtml(it.subject) + " — " + GENDER_LABEL[it.gender] + "</div>" +
+        '<div class="pair-answer-ru">' + escapeHtml(it.nounRu) + "</div>";
     }
     if (mode === "plural") {
       return '<div class="pair-answer">' + escapeHtml(it.noun) + " → " + escapeHtml(it.definite) + "</div>" +

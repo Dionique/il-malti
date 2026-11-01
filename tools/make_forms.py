@@ -372,7 +372,19 @@ def main():
         pl2.append(it)
     prep = pl2
 
-    data = {"agreement": agreement, "plural": plural, "prep": prep}
+    # ---------- род ----------
+    gender = []
+    for n in words:
+        if n.get("pos") != "noun" or not n.get("g"):
+            continue
+        gender.append({
+            "noun": n["mt"],
+            "subject": n.get("art") or n["mt"],
+            "nounRu": re.sub(r"\s*\([^)]*\)", "", n["ru"].split(",")[0].strip()),
+            "gender": n["g"],
+        })
+
+    data = {"agreement": agreement, "gender": gender, "plural": plural, "prep": prep}
 
     if sample:
         print("=== согласование (%d) ===" % len(agreement))
@@ -382,6 +394,11 @@ def main():
                   % (it["gender"], it["adjForm"], it["verbForm"],
                      " / ".join(it["adjOptions"]), " / ".join(it["verbOptions"])))
             print("     перевод: %s" % it["ru"])
+        print()
+        print("=== род (%d) ===" % len(gender))
+        for it in gender[:8]:
+            print("  %-14s (%s)   перевод: %s"
+                  % (it["subject"], it["gender"], it["nounRu"]))
         print()
         print("=== множественное (%d) ===" % len(plural))
         for it in plural[:8]:
@@ -398,7 +415,7 @@ def main():
         return 0
 
     lines = ["window.FORMS = {"]
-    for key in ("agreement", "plural", "prep"):
+    for key in ("agreement", "gender", "plural", "prep"):
         lines.append("  %s: [" % key)
         for it in data[key]:
             lines.append("    " + json.dumps(it, ensure_ascii=False) + ",")
@@ -406,8 +423,8 @@ def main():
     lines.append("};")
     with open(os.path.join(ROOT, TARGET), "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n")
-    print("записано %s: согласование %d, мн.ч. %d, предлоги %d"
-          % (TARGET, len(agreement), len(plural), len(prep)))
+    print("записано %s: согласование %d, род %d, мн.ч. %d, предлоги %d"
+          % (TARGET, len(agreement), len(gender), len(plural), len(prep)))
     return 0
 
 
