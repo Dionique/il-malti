@@ -45,15 +45,19 @@ filled`, `нашли фразу из трёх и более разных сло�
 
 ### REQ-SENT-05 — Выбор перевода
 Дана русская фраза, нужно узнать мальтийскую среди трёх. Вопросы ввода нет —
-ответ выбирается нажатием. Дистракторы берутся из той же темы и близкой
-длины, чтобы угадать по виду было нельзя. Верный вариант уходит сам.
+ответ выбирается нажатием. Дистрактор обязан быть правдоподобным: того же
+типа, что и верная фраза — вопрос к вопросу, утверждение к утверждению, —
+иначе ответ выдаёт знак вопроса. Среди равных предпочитаются фразы той же
+темы и близкой длины, но из лучших выбирается случайная пара, чтобы набор не
+повторялся. Повторяющихся вариантов не бывает. Верный вариант уходит сам.
 
 **Проверка:** `REQ-SENT-05 choice mode visible`, `new words hidden in choice
 mode`, `three translation options`, `the correct sentence is among the
-options`, `варианты не повторяются`, `a wrong choice is reported`, `the
-correct option is highlighted`, `the wrong option is marked`, `no check
-button needed in choice mode`, `a correct choice is accepted`, `a correct
-choice advances by itself`.
+options`, `варианты не повторяются`, `дистрактор того же типа, что и ответ`,
+`дистрактор из той же темы`, `a wrong choice is reported`, `the correct
+option is highlighted`, `the wrong option is marked`, `no check button
+needed in choice mode`, `a correct choice is accepted`, `a correct choice
+advances by itself`.
 
 ### REQ-SENT-06 — Карточка-переворот
 Мальтийская фраза скрыта, пока не нажмёшь карточку или кнопку. Кнопки

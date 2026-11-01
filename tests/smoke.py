@@ -275,6 +275,34 @@ def main():
         check("REQ-SENT-05 a correct choice advances by itself",
               page.locator("#s-choice-list .ok").count(), 0)
 
+        # дистрактор должен быть правдоподобным: того же типа, что и ответ
+        page.select_option("#s-mode", "choice")
+        same_kind, same_topic, seen_n = 0, 0, 0
+        for _ in range(40):
+            info = page.evaluate("""() => {
+              const ru = document.getElementById('s-ru').textContent;
+              const s = window.SENTENCES.find(x => x.ru === ru);
+              if (!s) return null;
+              const opts = [...document.querySelectorAll('#s-choice-list .opt-sentence')]
+                             .map(o => o.dataset.mt);
+              const kind = t => /\\?\\s*$/.test(t) ? 'q' : 's';
+              const topic = t => (window.SENTENCES.find(x => x.mt === t) || {}).topic;
+              return {
+                ok: opts.length === 3 && opts.every(o => kind(o) === kind(s.mt)),
+                topic: opts.filter(o => topic(o) === s.topic).length
+              };
+            }""")
+            if info:
+                seen_n += 1
+                if info["ok"]:
+                    same_kind += 1
+                if info["topic"] >= 1:
+                    same_topic += 1
+            page.click("#s-next")
+        check("REQ-SENT-05 дистрактор того же типа, что и ответ", same_kind, seen_n)
+        check("REQ-SENT-05 дистрактор из той же темы", same_topic,
+              predicate=lambda v: seen_n > 0 and v >= seen_n * 0.8)
+
         # карточка-переворот: ответ скрыт, пока не нажмёшь
         page.select_option("#s-mode", "card")
         secret = page.evaluate("""() => {

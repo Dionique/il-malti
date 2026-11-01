@@ -384,9 +384,7 @@ window.SENTENCES = [
   { mt: "Il-posta elettronika hija ġdida.", ru: "Электронная почта новая.", topic: "office", level: 1 },
 
   // ---- живые фразы из корпуса Tatoeba (CC BY 2.0 FR) ----
-  { mt: "Minn fejn int?",                 ru: "Откуда ты?",                       topic: "greet",   level: 1 },
   { mt: "Jien minn Malta.",               ru: "Я с Мальты.",                      topic: "greet",   level: 1 },
-  { mt: "Fejn hu l-bank?",                ru: "Где банк?",                        topic: "place",   level: 1 },
   { mt: "Fejn hu t-tojlit?",              ru: "Где туалет?",                      topic: "place",   level: 1 },
   { mt: "Xi trid tagħmel?",               ru: "Что ты хочешь делать?",            topic: "want",    level: 1 },
   { mt: "Xi trid tagħmel illum?",         ru: "Что ты хочешь делать сегодня?",    topic: "want",    level: 1 },

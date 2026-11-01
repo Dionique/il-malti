@@ -812,18 +812,35 @@
   }
 
   // Режим «Выбор перевода»: русская фраза дана, надо узнать мальтийскую.
-  // Дистракторы берём из той же темы и близкой длины, чтобы не угадывать.
+  // Дистрактор обязан быть правдоподобным: того же типа (вопрос или
+  // утверждение), по возможности той же темы и близкой длины. Иначе ответ
+  // выдаёт знак вопроса — так «Narak għada.» стояло среди двух вопросов.
+  function sentKind(text) { return /\?\s*$/.test(text) ? "q" : "s"; }
+  function sentWordCount(text) {
+    return text.replace(/[?!.,;:…"«»]/g, " ").split(/\s+/).filter(Boolean).length;
+  }
+
   function choiceOptions(s) {
-    var mine = s.mt.split(" ").length;
-    var rest = SENTENCES.filter(function (x) { return x.mt !== s.mt; });
-    rest.sort(function (a, b) {
-      var ta = a.topic === s.topic ? 0 : 1;
-      var tb = b.topic === s.topic ? 0 : 1;
-      if (ta !== tb) return ta - tb;
-      return Math.abs(a.mt.split(" ").length - mine) -
-             Math.abs(b.mt.split(" ").length - mine);
-    });
-    return shuffle([s].concat(rest.slice(0, 2)));
+    var kind = sentKind(s.mt);
+    var words = sentWordCount(s.mt);
+    // одинаковые фразы (в данных бывают дубли) в варианты не берём
+    function candidates(sameKindOnly) {
+      var seen = {};
+      return SENTENCES.filter(function (x) {
+        if (x.mt === s.mt || seen[x.mt]) return false;
+        if (sameKindOnly && sentKind(x.mt) !== kind) return false;
+        seen[x.mt] = true;
+        return true;
+      });
+    }
+    var pool = candidates(true);
+    if (pool.length < 2) pool = candidates(false);
+    var ranked = pool.map(function (x) {
+      return { x: x, score: (x.topic === s.topic ? 0 : 1000) + Math.abs(sentWordCount(x.mt) - words) };
+    }).sort(function (a, b) { return a.score - b.score; });
+    // из лучших берём случайные, чтобы набор не повторялся из раза в раз
+    var top = shuffle(ranked.slice(0, Math.min(10, ranked.length)).map(function (r) { return r.x; }));
+    return shuffle([s].concat(top.slice(0, 2)));
   }
 
   function renderChoice(s) {
