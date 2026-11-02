@@ -117,6 +117,41 @@ def main():
         check("REQ-WORDS-09 род существительного показан на карточке", card_gender,
               predicate=lambda s: "Род: м." in s or "Род: ж." in s)
 
+        # --- парадигма глагола на карточке (REQ-WORDS-10) ---
+        page.evaluate("() => localStorage.clear()")
+        page.reload()
+        page.select_option("#w-limit", "0")
+        page.select_option("#w-topic", label="Глаголы")
+        verb_detail = ""
+        for _ in range(15):
+            if page.locator("#w-show").is_hidden():
+                break
+            page.click("#w-show")
+            text = page.inner_text("#w-back-detail")
+            if "Настоящее время:" in text:
+                verb_detail = text
+                break
+            page.click("#w-yes")
+        check("REQ-WORDS-10 на карточке глагола видна парадигма", verb_detail,
+              predicate=lambda s: "Настоящее время:" in s)
+        check("REQ-WORDS-10 в парадигме семь лиц",
+              page.evaluate("""() => {
+                  const d = document.getElementById('w-back-detail').textContent;
+                  const m = d.match(/Настоящее время: (.*)/);
+                  return m ? m[1].split('·').length : 0;
+                }"""), 7)
+
+        # --- данные глаголов (REQ-DATA-06) ---
+        check("REQ-DATA-06 у глагола три или семь форм",
+              page.evaluate("""() => window.WORDS.filter(x => x.pos === 'verb' && x.pres)
+                  .every(x => [3, 7].indexOf(x.pres.split(',').length) !== -1)"""), True)
+        check("REQ-DATA-06 forms начинается с 3-го лица ед. ч.",
+              page.evaluate("""() => window.WORDS.filter(x => x.pos === 'verb' && x.pres
+                    && x.pres.split(',').length === 7)
+                  .every(x => (x.forms || '').split(',')[0].trim() === x.pres.split(',')[2].trim())"""), True)
+        check("REQ-DATA-06 источник форм указан",
+              page.inner_text("#data-source"), predicate=lambda s: "verb.mt" in s)
+
         # --- сверка форм с Викисловарём (REQ-DATA-05) ---
         dump = os.environ.get("KAIKKI_MT", "/tmp/kaikki-mt.jsonl")
         if os.path.exists(dump):
@@ -409,11 +444,12 @@ def main():
         page.evaluate("() => localStorage.clear()")
         page.reload()
         page.click('.tab[data-tab="forms"]')
-        check("REQ-FORMS-01 six morphology modes offered", page.locator("#fm-mode option").count(), 6)
+        check("REQ-FORMS-01 seven morphology modes offered", page.locator("#fm-mode option").count(), 7)
         check("REQ-FORMS-05 queue respects the daily limit", page.inner_text("#fm-counter"),
               predicate=lambda s: "Упражнение 1 из 10" in s and "0/10" in s)
 
-        for mode, rows_expected in (("pair", 3), ("agree", 4), ("adjagree", 3), ("gender", 2), ("plural", 2), ("prep", 3)):
+        for mode, rows_expected in (("pair", 3), ("agree", 4), ("adjagree", 3), ("conj", 2),
+                                    ("gender", 2), ("plural", 2), ("prep", 3)):
             page.select_option("#fm-mode", mode)
             # у множественного число вопросов зависит от слова (неисчисляемые -> без перевода)
             if mode == "plural":
@@ -455,7 +491,7 @@ def main():
                   predicate=lambda s: "все пункты" in s)
 
         # неверный ответ по каждому пункту -> режим должен назвать, что не так
-        for mode in ("pair", "agree", "adjagree", "gender", "plural", "prep"):
+        for mode in ("pair", "agree", "adjagree", "conj", "gender", "plural", "prep"):
             page.select_option("#fm-mode", mode)
             rows = page.evaluate("() => JSON.parse(document.getElementById('fm-correct').value)")
             for r in rows:
@@ -471,6 +507,44 @@ def main():
                   page.locator("#fm-quiz .opt.ok").count(), len(rows))
             check("REQ-FORMS-04 %s: the answer is shown" % mode, page.inner_text("#fm-answer"),
                   predicate=lambda s: len(s.strip()) > 0)
+
+        # режим «Спряжение»: семь лиц, форма и перевод
+        page.select_option("#fm-mode", "conj")
+        check("REQ-FORMS-08 спряжение: варианты без повторов",
+              page.evaluate("""() => window.FORMS.conj.every(x =>
+                  new Set(x.formOptions).size === x.formOptions.length
+                  && x.formOptions.indexOf(x.form) !== -1)"""), True)
+        check("REQ-FORMS-08 спряжение: вариантов не меньше шести",
+              page.evaluate("""() => window.FORMS.conj.every(x =>
+                  x.formOptions.length >= 6)"""), True)
+        check("REQ-FORMS-08 спряжение: у каждого глагола полная парадигма",
+              page.evaluate("""() => {
+                  const byVerb = {};
+                  window.FORMS.conj.forEach(x => {
+                    (byVerb[x.verb] = byVerb[x.verb] || {})[x.person] = true;
+                  });
+                  return Object.keys(byVerb).length > 0
+                    && Object.keys(byVerb).every(v => Object.keys(byVerb[v]).length === 7);
+                }"""), True)
+        check("REQ-FORMS-08 спряжение: верный ответ среди вариантов",
+              page.evaluate("""() => {
+                  const rows = JSON.parse(document.getElementById('fm-correct').value);
+                  const r = rows.find(x => x.key === 'form');
+                  return !!r && [...document.querySelectorAll(
+                    '#fm-quiz .quiz-options[data-key="form"] .opt')]
+                    .some(o => o.dataset.value === r.correct);
+                }"""), True)
+        cj_rows = page.evaluate("() => JSON.parse(document.getElementById('fm-correct').value)")
+        for r in cj_rows:
+            page.evaluate("""r => {
+              const box = document.querySelector("#fm-quiz .quiz-options[data-key='" + r.key + "']");
+              [...box.querySelectorAll('.opt')].find(o => o.dataset.value === r.correct).click();
+            }""", r)
+        page.click("#fm-check")
+        check("REQ-FORMS-08 спряжение: верный ответ принят", page.inner_text("#fm-feedback"), "Верно!")
+        check("REQ-FORMS-08 спряжение: разбор называет лицо и перевод",
+              page.inner_text("#fm-answer"),
+              predicate=lambda s: "·" in s and len(s.strip()) > 0)
 
         # режим «Согласование: сущ + прил»: форма прилагательного зависит от рода
         page.select_option("#fm-mode", "adjagree")

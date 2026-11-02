@@ -122,6 +122,16 @@ def validate_articles(words):
     return bad
 
 
+
+def pres3(verb):
+    """3m, 3f, 3p из парадигмы: 7 лиц (1s,2s,3m,3f,1p,2p,3p) или старые 3 формы."""
+    forms = [f.strip() for f in (verb.get("pres") or "").split(",") if f.strip()]
+    if len(forms) == 7:
+        return [forms[2], forms[3], forms[6]]
+    if len(forms) == 3:
+        return forms
+    return None
+
 def main():
     words = load_words()
     by_mt = {w["mt"]: w for w in words}
@@ -147,8 +157,8 @@ def main():
         if not noun or not verb or not verb.get("pres"):
             print("  пропуск: %s + %s" % (noun_mt, verb_mt), file=sys.stderr)
             return
-        forms = [f.strip() for f in verb["pres"].split(",")]
-        if len(forms) != 3:
+        forms = pres3(verb)
+        if not forms:
             print("  пропуск (нет парадигмы): %s" % verb_mt, file=sys.stderr)
             return
 

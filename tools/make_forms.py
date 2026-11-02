@@ -234,6 +234,16 @@ def validate_articles(words):
     return bad
 
 
+
+def pres3(verb):
+    """3m, 3f, 3p из парадигмы: 7 лиц (1s,2s,3m,3f,1p,2p,3p) или старые 3 формы."""
+    forms = [f.strip() for f in (verb.get("pres") or "").split(",") if f.strip()]
+    if len(forms) == 7:
+        return [forms[2], forms[3], forms[6]]
+    if len(forms) == 3:
+        return forms
+    return None
+
 def main():
     words = load_words()
     by_mt = {w["mt"]: w for w in words}
@@ -297,8 +307,8 @@ def main():
         if len(forms) < 2 or not v.get("pres"):
             print("  пропуск:", adj_mt, verb_mt, file=sys.stderr)
             continue
-        vforms = [f.strip() for f in v["pres"].split(",")]
-        if len(vforms) != 3:
+        vforms = pres3(v)
+        if not vforms:
             print("  пропуск (парадигма):", verb_mt, file=sys.stderr)
             continue
         form = forms[0] if n["g"] == "m" else forms[1]
@@ -343,6 +353,36 @@ def main():
                 "gender": n["g"],
                 "adjForm": forms[0] if g == "m" else forms[1],
                 "adjOptions": forms[:3],
+            })
+
+    # ---------- спряжение ----------
+    # 7 лиц имперфетта; парадигмы сверены с verb.mt (см. tools/check_verbs_against_verbmt.py)
+    PERSONS = [("1s", "jien", "я"), ("2s", "inti", "ты"), ("3m", "huwa", "он"),
+               ("3f", "hija", "она"), ("1p", "aħna", "мы"), ("2p", "intom", "вы"),
+               ("3p", "huma", "они")]
+    conj = []
+    for v in words:
+        if v.get("pos") != "verb":
+            continue
+        forms = [f.strip() for f in (v.get("pres") or "").split(",") if f.strip()]
+        if len(forms) != 7:
+            continue
+        verb_ru = re.sub(r"\s*\([^)]*\)", "", v["ru"].split(",")[0].strip())
+        # 2-е лицо ед. ч. и 3-е лицо ж. р. в мальтийском совпадают (tifhem),
+        # поэтому в вариантах форма должна быть ровно один раз
+        options = []
+        for f in forms:
+            if f not in options:
+                options.append(f)
+        for i, (key, pron, pron_ru) in enumerate(PERSONS):
+            conj.append({
+                "verb": v["mt"],
+                "verbRu": verb_ru,
+                "person": key,
+                "pron": pron,
+                "pronRu": pron_ru,
+                "form": forms[i],
+                "formOptions": options,
             })
 
     # ---------- множественное ----------
@@ -412,8 +452,8 @@ def main():
             "gender": n["g"],
         })
 
-    data = {"agreement": agreement, "adjagree": adjagree, "gender": gender,
-            "plural": plural, "prep": prep}
+    data = {"agreement": agreement, "adjagree": adjagree, "conj": conj,
+            "gender": gender, "plural": plural, "prep": prep}
 
     if sample:
         print("=== согласование (%d) ===" % len(agreement))
@@ -429,6 +469,11 @@ def main():
             print("  %-14s + %-10s -> %-10s (%s)   перевод: %s / %s"
                   % (it["subject"], it["adj"], it["adjForm"], it["gender"],
                      it["nounRu"], it["adjRu"]))
+        print()
+        print("=== спряжение (%d) ===" % len(conj))
+        for it in conj[:8]:
+            print("  %-9s + %-6s -> %-10s (%s)   перевод: %s"
+                  % (it["verb"], it["pron"], it["form"], it["person"], it["verbRu"]))
         print()
         print("=== род (%d) ===" % len(gender))
         for it in gender[:8]:
@@ -450,7 +495,7 @@ def main():
         return 0
 
     lines = ["window.FORMS = {"]
-    for key in ("agreement", "adjagree", "gender", "plural", "prep"):
+    for key in ("agreement", "adjagree", "conj", "gender", "plural", "prep"):
         lines.append("  %s: [" % key)
         for it in data[key]:
             lines.append("    " + json.dumps(it, ensure_ascii=False) + ",")
@@ -458,8 +503,9 @@ def main():
     lines.append("};")
     with open(os.path.join(ROOT, TARGET), "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n")
-    print("записано %s: согласование %d, прил+сущ %d, род %d, мн.ч. %d, предлоги %d"
-          % (TARGET, len(agreement), len(adjagree), len(gender), len(plural), len(prep)))
+    print("записано %s: согласование %d, прил+сущ %d, спряжение %d, род %d, мн.ч. %d, предлоги %d"
+          % (TARGET, len(agreement), len(adjagree), len(conj), len(gender),
+             len(plural), len(prep)))
     return 0
 
 

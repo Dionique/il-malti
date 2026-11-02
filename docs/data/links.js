@@ -18,7 +18,7 @@ window.SENTENCE_LINKS = {
   "Nitkellem ftit bil-Malti.": { words: ["tkellem", "ftit", "Malti"], pos: {"tkellem": [0], "ftit": [1], "Malti": [2]}, unknown: [] },
   "Saħħa!": { words: ["saħħa"], pos: {"saħħa": [0]}, unknown: [] },
   "Narak għada.": { words: ["ra", "għada"], pos: {"ra": [0], "għada": [1]}, unknown: [] },
-  "Jien noqgħod il-Malta.": { words: ["jien", "noqgħod", "Malta"], pos: {"jien": [0], "noqgħod": [1], "Malta": [2]}, unknown: [] },
+  "Jien noqgħod il-Malta.": { words: ["jien", "qagħad", "Malta"], pos: {"jien": [0], "qagħad": [1], "Malta": [2]}, unknown: [] },
   "Jien naħdem hawn.": { words: ["jien", "ħadem", "hawn"], pos: {"jien": [0], "ħadem": [1], "hawn": [2]}, unknown: [] },
   "Jien nitkellem bil-Malti.": { words: ["jien", "tkellem", "Malti"], pos: {"jien": [0], "tkellem": [1], "Malti": [2]}, unknown: [] },
   "Jien niekol il-ħobż.": { words: ["jien", "kiel", "ħobż"], pos: {"jien": [0], "kiel": [1], "ħobż": [2]}, unknown: [] },

@@ -455,12 +455,19 @@
 
     var detail = $("w-back-detail");
     detail.innerHTML = "";
-    if (wDir === "mt-ru" && (w.g || w.art || w.pl || w.forms)) {
+    if (wDir === "mt-ru" && (w.g || w.art || w.pl || w.forms || w.pres)) {
       var bits = [];
       if (w.g) bits.push("Род: " + (w.g === "f" ? "ж." : "м."));
       if (w.art) bits.push("Артикль: " + escapeHtml(w.art));
       if (w.pl) bits.push("Мн. ч.: " + escapeHtml(w.pl));
       if (w.forms) bits.push("Формы: " + escapeHtml(w.forms));
+      var pf = (w.pres || "").split(",").map(function (x) { return x.trim(); })
+                             .filter(function (x) { return x; });
+      if (pf.length === 7) {
+        bits.push("Настоящее время: " + pf.map(function (f, i) {
+          return PERSON_MT[i] + " " + escapeHtml(f);
+        }).join(" · "));
+      }
       detail.innerHTML = bits.map(function (b) { return "<div>" + b + "</div>"; }).join("");
     }
     $("w-back").textContent = back;
@@ -1216,10 +1223,10 @@
     });
   }
 
-  /* ---------- формы: 6 режимов (сочетание / согласование / сущ+прил / род / мн.ч. / предлоги) ---------- */
+  /* ---------- формы: 7 режимов (сочетание / согласование / сущ+прил / спряжение / род / мн.ч. / предлоги) ---------- */
 
   var PAIRS = window.PAIRS || [];
-  var FORMS = window.FORMS || { agreement: [], adjagree: [], gender: [], plural: [], prep: [] };
+  var FORMS = window.FORMS || { agreement: [], adjagree: [], conj: [], gender: [], plural: [], prep: [] };
   var DEFAULT_FM_LIMIT = 10;
 
   var GENDER_CHOICES = [
@@ -1228,6 +1235,8 @@
     { value: "pl", label: "мн. ч." }
   ];
   var GENDER_LABEL = { m: "м. род", f: "ж. род", pl: "мн. ч." };
+  // порядок лиц в парадигме: 1s,2s,3m,3f,1p,2p,3p (как в data/words.js)
+  var PERSON_MT = ["jien", "inti", "huwa", "hija", "aħna", "intom", "huma"];
   var GENDER_ONLY_CHOICES = [
     { value: "m", label: "м. род" },
     { value: "f", label: "ж. род" }
@@ -1254,6 +1263,13 @@
       kind: "form",
       source: function () { return FORMS.adjagree || []; },
       key: function (it) { return it.subject + "+" + it.adj; }
+    },
+    conj: {
+      label: "Спряжение (настоящее время)",
+      prefix: "fc:",
+      kind: "form",
+      source: function () { return FORMS.conj || []; },
+      key: function (it) { return it.verb + "+" + it.person; }
     },
     plural: {
       label: "Множественное число",
@@ -1370,6 +1386,9 @@
     if (mode === "adjagree") {
       return part(it.subject) + '<span class="pair-plus">+</span>' + part(it.adj);
     }
+    if (mode === "conj") {
+      return part(it.pron) + '<span class="pair-plus">+</span>' + part(it.verb);
+    }
     if (mode === "gender") {
       return part(it.subject) + '<span class="pair-plus">→ род?</span>';
     }
@@ -1406,6 +1425,13 @@
       rows.push({ key: "verbForm", label: "3. Форма глагола (" + escapeHtml(it.verb) + ")", options: vals(it.verbOptions), correct: it.verbForm });
       rows.push({ key: "ru", label: "4. Перевод фразы",
                   options: vals([it.ru].concat(distractors(it.ru, others, 2))), correct: it.ru });
+    } else if (mode === "conj") {
+      var cverbs = FM_MODES.conj.list.map(function (x) { return x.data; });
+      rows.push({ key: "form", label: "1. Форма глагола (" + escapeHtml(it.pron) + ")",
+                  options: vals(it.formOptions), correct: it.form });
+      rows.push({ key: "verbRu", label: "2. Перевод глагола",
+                  options: vals(shuffle([it.verbRu].concat(distractors(it.verbRu, cverbs, 2, "verbRu")))),
+                  correct: it.verbRu });
     } else if (mode === "adjagree") {
       var aadjs = FM_MODES.adjagree.list.map(function (x) { return x.data; });
       rows.push({ key: "gender", label: "1. Род существительного",
@@ -1596,6 +1622,10 @@
         '<div class="pair-answer-ru">' + escapeHtml(it.ru) + "</div>" +
         '<div class="pair-answer-ru">' + escapeHtml(it.subject) + " — " + GENDER_LABEL[it.gender] +
         " · прилаг. " + escapeHtml(it.adjForm) + " · глаг. " + escapeHtml(it.verbForm) + "</div>";
+    }
+    if (mode === "conj") {
+      return '<div class="pair-answer">' + escapeHtml(it.pron) + " " + escapeHtml(it.form) + "</div>" +
+        '<div class="pair-answer-ru">' + escapeHtml(it.verbRu) + " · " + escapeHtml(it.pronRu) + "</div>";
     }
     if (mode === "adjagree") {
       return '<div class="pair-answer">' + escapeHtml(it.subject) + " " + escapeHtml(it.adjForm) + "</div>" +
