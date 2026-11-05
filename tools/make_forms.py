@@ -334,24 +334,35 @@ def main():
     adjagree = []
     changeable = [a for a in words if a.get("pos") == "adj" and a.get("forms")]
     gendered = [n for n in words if n.get("pos") == "noun" and n.get("g") and n.get("art")]
+    plural_nouns = [n for n in gendered if n.get("pl")]
     for i, a in enumerate(changeable):
         forms = adj_forms(a)
         if len(forms) < 2:
             continue
         adj_ru = re.sub(r"\s*\([^)]*\)", "", a["ru"].split(",")[0].strip())
-        for j, g in enumerate(("m", "f")):
-            group = [n for n in gendered if n["g"] == g]
-            if not group:
-                continue
-            n = group[(i * 2 + j) % len(group)]
+        for j, g in enumerate(("m", "f", "pl")):
+            if g == "pl":
+                # множественное: существительное во мн. ч. + прилагательное во мн. ч.
+                if len(forms) < 3 or not plural_nouns:
+                    continue
+                n = plural_nouns[(i * 3) % len(plural_nouns)]
+                subj = plural_article(n["pl"])   # возвращает форму с артиклём целиком
+                form = forms[2]
+            else:
+                group = [n for n in gendered if n["g"] == g]
+                if not group:
+                    continue
+                n = group[(i * 2 + j) % len(group)]
+                subj = n["art"]
+                form = forms[0] if g == "m" else forms[1]
             adjagree.append({
-                "subject": n["art"],
+                "subject": subj,
                 "noun": n["mt"],
                 "nounRu": re.sub(r"\s*\([^)]*\)", "", n["ru"].split(",")[0].strip()),
                 "adj": a["mt"],
                 "adjRu": adj_ru,
-                "gender": n["g"],
-                "adjForm": forms[0] if g == "m" else forms[1],
+                "gender": g,
+                "adjForm": form,
                 "adjOptions": forms[:3],
             })
 
@@ -440,20 +451,9 @@ def main():
         pl2.append(it)
     prep = pl2
 
-    # ---------- род ----------
-    gender = []
-    for n in words:
-        if n.get("pos") != "noun" or not n.get("g"):
-            continue
-        gender.append({
-            "noun": n["mt"],
-            "subject": n.get("art") or n["mt"],
-            "nounRu": re.sub(r"\s*\([^)]*\)", "", n["ru"].split(",")[0].strip()),
-            "gender": n["g"],
-        })
-
+    # режим «Род» слит в «Существительное: род и число», он берёт набор plural
     data = {"agreement": agreement, "adjagree": adjagree, "conj": conj,
-            "gender": gender, "plural": plural, "prep": prep}
+            "plural": plural, "prep": prep}
 
     if sample:
         print("=== согласование (%d) ===" % len(agreement))
@@ -475,11 +475,6 @@ def main():
             print("  %-9s + %-6s -> %-10s (%s)   перевод: %s"
                   % (it["verb"], it["pron"], it["form"], it["person"], it["verbRu"]))
         print()
-        print("=== род (%d) ===" % len(gender))
-        for it in gender[:8]:
-            print("  %-14s (%s)   перевод: %s"
-                  % (it["subject"], it["gender"], it["nounRu"]))
-        print()
         print("=== множественное (%d) ===" % len(plural))
         for it in plural[:8]:
             print("  %s (%s) -> %s | с артиклем: %s   перевод: %s"
@@ -495,7 +490,7 @@ def main():
         return 0
 
     lines = ["window.FORMS = {"]
-    for key in ("agreement", "adjagree", "conj", "gender", "plural", "prep"):
+    for key in ("agreement", "adjagree", "conj", "plural", "prep"):
         lines.append("  %s: [" % key)
         for it in data[key]:
             lines.append("    " + json.dumps(it, ensure_ascii=False) + ",")
@@ -503,9 +498,8 @@ def main():
     lines.append("};")
     with open(os.path.join(ROOT, TARGET), "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n")
-    print("записано %s: согласование %d, прил+сущ %d, спряжение %d, род %d, мн.ч. %d, предлоги %d"
-          % (TARGET, len(agreement), len(adjagree), len(conj), len(gender),
-             len(plural), len(prep)))
+    print("записано %s: согласование %d, прил+сущ %d, спряжение %d, сущ %d, предлоги %d"
+          % (TARGET, len(agreement), len(adjagree), len(conj), len(plural), len(prep)))
     return 0
 
 

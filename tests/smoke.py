@@ -444,18 +444,17 @@ def main():
         page.evaluate("() => localStorage.clear()")
         page.reload()
         page.click('.tab[data-tab="forms"]')
-        check("REQ-FORMS-01 seven morphology modes offered", page.locator("#fm-mode option").count(), 7)
+        check("REQ-FORMS-01 six morphology modes offered", page.locator("#fm-mode option").count(), 6)
         check("REQ-FORMS-05 queue respects the daily limit", page.inner_text("#fm-counter"),
               predicate=lambda s: "Упражнение 1 из 10" in s and "0/10" in s)
 
-        for mode, rows_expected in (("pair", 3), ("agree", 4), ("adjagree", 3), ("conj", 2),
-                                    ("gender", 2), ("plural", 2), ("prep", 3)):
+        for mode, rows_expected in (("pair", 3), ("agree", 4), ("adjagree", 3), ("noun", 5),
+                                    ("conj", 2), ("prep", 3)):
             page.select_option("#fm-mode", mode)
-            # у множественного число вопросов зависит от слова (неисчисляемые -> без перевода)
-            if mode == "plural":
-                check("REQ-FORMS-02 plural: 2 or 3 question rows",
+            if mode == "noun":
+                check("REQ-FORMS-09 сущ: четыре или пять вопросов",
                       page.locator("#fm-quiz .quiz-row").count(),
-                      predicate=lambda n: n in (2, 3))
+                      predicate=lambda n: n in (4, 5))
             else:
                 check("REQ-FORMS-02 %s: question rows" % mode,
                       page.locator("#fm-quiz .quiz-row").count(), rows_expected)
@@ -475,23 +474,13 @@ def main():
                 const cyr = /[а-яё]/i;
                 return [...document.querySelectorAll('#fm-quiz .opt')].some(o => cyr.test(o.textContent));
               }""")
-            if mode == "plural":
-                # у неисчисляемых (birra, patata, ewro) русского мн. ч. нет — строки тоже нет
-                needs = page.evaluate("""() => {
-                    const noun = document.querySelector('#fm-prompt .pair-part').textContent;
-                    const it = window.FORMS.plural.find(x => x.noun === noun);
-                    return it ? !!it.ruPl : null;
-                  }""")
-                check("REQ-FORMS-03 plural: перевод показан тогда и только тогда, когда он есть",
-                      has_ru_q == bool(needs), True)
-            else:
-                check("REQ-FORMS-03 %s: a translation question is present" % mode, has_ru_q, True)
+            check("REQ-FORMS-03 %s: a translation question is present" % mode, has_ru_q, True)
             page.click("#fm-check")
             check("REQ-FORMS-04 %s: incomplete answer rejected" % mode, page.inner_text("#fm-feedback"),
                   predicate=lambda s: "все пункты" in s)
 
         # неверный ответ по каждому пункту -> режим должен назвать, что не так
-        for mode in ("pair", "agree", "adjagree", "conj", "gender", "plural", "prep"):
+        for mode in ("pair", "agree", "adjagree", "noun", "conj", "prep"):
             page.select_option("#fm-mode", mode)
             rows = page.evaluate("() => JSON.parse(document.getElementById('fm-correct').value)")
             for r in rows:
@@ -507,6 +496,32 @@ def main():
                   page.locator("#fm-quiz .opt.ok").count(), len(rows))
             check("REQ-FORMS-04 %s: the answer is shown" % mode, page.inner_text("#fm-answer"),
                   predicate=lambda s: len(s.strip()) > 0)
+
+        # режим «Существительное: род и число»: род, число, артикль, модель, перевод
+        page.select_option("#fm-mode", "noun")
+        check("REQ-FORMS-09 сущ: модель выводится из формы",
+              page.evaluate("""() => {
+                  const kind = t => /ijiet$/.test(t) ? '-ijiet'
+                                  : /in$/.test(t) ? '-in' : /i$/.test(t) ? '-i' : 'другая';
+                  return window.FORMS.plural.every(x => {
+                    const rows = ['-ijiet', '-in', '-i', 'другая'];
+                    return rows.indexOf(kind(x.plural)) !== -1;
+                  });
+                }"""), True)
+        check("REQ-FORMS-09 сущ: у всех слов есть род и множественное",
+              page.evaluate("""() => window.FORMS.plural.every(x =>
+                  (x.gender === 'm' || x.gender === 'f') && !!x.plural && !!x.definite)"""), True)
+        n_rows = page.evaluate("() => JSON.parse(document.getElementById('fm-correct').value)")
+        for r in n_rows:
+            page.evaluate("""r => {
+              const box = document.querySelector("#fm-quiz .quiz-options[data-key='" + r.key + "']");
+              [...box.querySelectorAll('.opt')].find(o => o.dataset.value === r.correct).click();
+            }""", r)
+        page.click("#fm-check")
+        check("REQ-FORMS-09 сущ: верный ответ принят", page.inner_text("#fm-feedback"), "Верно!")
+        check("REQ-FORMS-09 сущ: разбор называет род и модель",
+              page.inner_text("#fm-answer"),
+              predicate=lambda s: "род" in s and "модель" in s)
 
         # режим «Спряжение»: семь лиц, форма и перевод
         page.select_option("#fm-mode", "conj")
@@ -555,6 +570,11 @@ def main():
                 return r ? document.querySelectorAll(
                   '#fm-quiz .quiz-options[data-key="adjForm"] .opt').length >= 2 : false;
               }"""), True)
+        check("REQ-FORMS-07 прил+сущ: есть согласование во множественном числе",
+              page.evaluate("""() => {
+                  const pl = window.FORMS.adjagree.filter(x => x.gender === 'pl');
+                  return pl.length > 0 && pl.every(x => x.adjForm !== x.adjOptions[0]);
+                }"""), True)
         check("REQ-FORMS-07 прил+сущ: у прилагательного есть форма ж. р.",
               page.evaluate("() => window.FORMS.adjagree.every(x => x.adjOptions.length >= 2)"), True)
         check("REQ-FORMS-07 прил+сущ: ж. р. даёт другую форму",
@@ -572,27 +592,14 @@ def main():
               page.inner_text("#fm-answer"),
               predicate=lambda s: "прилаг." in s and "род" in s)
 
-        # режим «Род»: спрашивает только м/ж, у каждого слова есть ответ и перевод
-        page.select_option("#fm-mode", "gender")
-        check("REQ-FORMS-06 род: вариантов ровно два (м/ж)",
+        # режим «Существительное»: у всех слов есть род (только м/ж) и перевод
+        page.select_option("#fm-mode", "noun")
+        check("REQ-FORMS-09 сущ: вариантов рода ровно два (м/ж)",
               page.locator('#fm-quiz .quiz-options[data-key="gender"] .opt').count(), 2)
-        check("REQ-FORMS-06 род: среди вариантов нет «мн. ч.»",
-              page.evaluate("""() => [...document.querySelectorAll('#fm-quiz .quiz-options[data-key="gender"] .opt')]
-                  .every(o => o.textContent.trim() !== 'мн. ч.')"""), True)
-        check("REQ-FORMS-06 род: род определён у всех слов режима",
-              page.evaluate("() => window.FORMS.gender.every(x => x.gender === 'm' || x.gender === 'f')"), True)
-        check("REQ-FORMS-06 род: у каждого слова есть перевод",
-              page.evaluate("() => window.FORMS.gender.every(x => !!x.nounRu)"), True)
-        gen_rows = page.evaluate("() => JSON.parse(document.getElementById('fm-correct').value)")
-        for r in gen_rows:
-            page.evaluate("""r => {
-              const box = document.querySelector("#fm-quiz .quiz-options[data-key='" + r.key + "']");
-              [...box.querySelectorAll('.opt')].find(o => o.dataset.value === r.correct).click();
-            }""", r)
-        page.click("#fm-check")
-        check("REQ-FORMS-06 род: верный ответ принят", page.inner_text("#fm-feedback"), "Верно!")
-        check("REQ-FORMS-06 род: разбор называет род",
-              page.inner_text("#fm-answer"), predicate=lambda s: "род" in s)
+        check("REQ-FORMS-09 сущ: род определён у всех слов режима",
+              page.evaluate("() => window.FORMS.plural.every(x => x.gender === 'm' || x.gender === 'f')"), True)
+        check("REQ-FORMS-09 сущ: у каждого слова есть перевод",
+              page.evaluate("() => window.FORMS.plural.every(x => !!x.nounRu)"), True)
 
         # верный ответ уходит сам
         page.select_option("#fm-mode", "agree")

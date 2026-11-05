@@ -49,7 +49,8 @@
     question: "Вопросы",
     weather: "Погода",
     number: "Числа и покупки",
-    everyday: "На каждый день"
+    everyday: "На каждый день",
+    plural: "Единственное и множественное"
   };
 
   var POS = {
@@ -1223,7 +1224,8 @@
     });
   }
 
-  /* ---------- формы: 7 режимов (сочетание / согласование / сущ+прил / спряжение / род / мн.ч. / предлоги) ---------- */
+  /* ---------- формы: 8 режимов (сочетание / согласование / сущ+прил / сущ: род и число /
+     спряжение / род / мн.ч. / предлоги) ---------- */
 
   var PAIRS = window.PAIRS || [];
   var FORMS = window.FORMS || { agreement: [], adjagree: [], conj: [], gender: [], plural: [], prep: [] };
@@ -1237,6 +1239,15 @@
   var GENDER_LABEL = { m: "м. род", f: "ж. род", pl: "мн. ч." };
   // порядок лиц в парадигме: 1s,2s,3m,3f,1p,2p,3p (как в data/words.js)
   var PERSON_MT = ["jien", "inti", "huwa", "hija", "aħna", "intom", "huma"];
+  // модели множественного числа: выводятся из формы, данных не требуют
+  var PLURAL_KINDS = ["-ijiet", "-in", "-i", "другая"];
+  function pluralKind(text) {
+    if (/ijiet$/.test(text)) return "-ijiet";
+    if (/in$/.test(text)) return "-in";
+    if (/i$/.test(text)) return "-i";
+    return "другая";
+  }
+
   var GENDER_ONLY_CHOICES = [
     { value: "m", label: "м. род" },
     { value: "f", label: "ж. род" }
@@ -1264,26 +1275,19 @@
       source: function () { return FORMS.adjagree || []; },
       key: function (it) { return it.subject + "+" + it.adj; }
     },
+    noun: {
+      label: "Существительное: род и число",
+      prefix: "fn:",
+      kind: "form",
+      source: function () { return FORMS.plural || []; },
+      key: function (it) { return it.noun; }
+    },
     conj: {
       label: "Спряжение (настоящее время)",
       prefix: "fc:",
       kind: "form",
       source: function () { return FORMS.conj || []; },
       key: function (it) { return it.verb + "+" + it.person; }
-    },
-    plural: {
-      label: "Множественное число",
-      prefix: "fp:",
-      kind: "form",
-      source: function () { return FORMS.plural || []; },
-      key: function (it) { return it.noun; }
-    },
-    gender: {
-      label: "Род существительного",
-      prefix: "fg:",
-      kind: "form",
-      source: function () { return FORMS.gender || []; },
-      key: function (it) { return it.noun; }
     },
     prep: {
       label: "Предлоги и слитные формы",
@@ -1389,11 +1393,8 @@
     if (mode === "conj") {
       return part(it.pron) + '<span class="pair-plus">+</span>' + part(it.verb);
     }
-    if (mode === "gender") {
-      return part(it.subject) + '<span class="pair-plus">→ род?</span>';
-    }
-    if (mode === "plural") {
-      return part(it.noun) + '<span class="pair-plus">→ мн. ч.</span>';
+    if (mode === "noun") {
+      return part(it.subject) + '<span class="pair-plus">→ род и мн. ч.</span>';
     }
     return part(it.prep) + '<span class="pair-plus">+</span>' + part(it.subject);
   }
@@ -1425,6 +1426,21 @@
       rows.push({ key: "verbForm", label: "3. Форма глагола (" + escapeHtml(it.verb) + ")", options: vals(it.verbOptions), correct: it.verbForm });
       rows.push({ key: "ru", label: "4. Перевод фразы",
                   options: vals([it.ru].concat(distractors(it.ru, others, 2))), correct: it.ru });
+    } else if (mode === "noun") {
+      var nnouns = FM_MODES.noun.list.map(function (x) { return x.data; });
+      rows.push({ key: "gender", label: "1. Род существительного",
+                  options: GENDER_ONLY_CHOICES, correct: it.gender });
+      rows.push({ key: "plural", label: "2. Множественное число",
+                  options: vals(it.pluralOptions), correct: it.plural });
+      rows.push({ key: "definite", label: "3. Множественное число с артиклем",
+                  options: vals(it.definiteOptions), correct: it.definite });
+      rows.push({ key: "kind", label: "4. Модель множественного числа",
+                  options: vals(PLURAL_KINDS), correct: pluralKind(it.plural) });
+      if (it.ruPl) {
+        rows.push({ key: "ruPl", label: "5. Перевод (множественное число)",
+                    options: vals(shuffle([it.ruPl].concat(distractors(it.ruPl, nnouns, 2, "ruPl")))),
+                    correct: it.ruPl });
+      }
     } else if (mode === "conj") {
       var cverbs = FM_MODES.conj.list.map(function (x) { return x.data; });
       rows.push({ key: "form", label: "1. Форма глагола (" + escapeHtml(it.pron) + ")",
@@ -1434,29 +1450,13 @@
                   correct: it.verbRu });
     } else if (mode === "adjagree") {
       var aadjs = FM_MODES.adjagree.list.map(function (x) { return x.data; });
-      rows.push({ key: "gender", label: "1. Род существительного",
-                  options: GENDER_ONLY_CHOICES, correct: it.gender });
+      rows.push({ key: "gender", label: "1. Род и число существительного",
+                  options: GENDER_CHOICES, correct: it.gender });
       rows.push({ key: "adjForm", label: "2. Форма прилагательного",
                   options: vals(it.adjOptions), correct: it.adjForm });
       rows.push({ key: "adjRu", label: "3. Перевод прилагательного",
                   options: vals(shuffle([it.adjRu].concat(distractors(it.adjRu, aadjs, 2, "adjRu")))),
-                  correct: it.adjRu });
-    } else if (mode === "gender") {
-      var gnouns = FM_MODES.gender.list.map(function (x) { return x.data; });
-      rows.push({ key: "gender", label: "1. Род существительного",
-                  options: GENDER_ONLY_CHOICES, correct: it.gender });
-      rows.push({ key: "ru", label: "2. Перевод",
-                  options: vals(shuffle([it.nounRu].concat(distractors(it.nounRu, gnouns, 2, "nounRu")))),
-                  correct: it.nounRu });
-    } else if (mode === "plural") {
-      var nouns = FM_MODES.plural.list.map(function (x) { return x.data; });
-      rows.push({ key: "plural", label: "1. Множественное число", options: vals(it.pluralOptions), correct: it.plural });
-      rows.push({ key: "definite", label: "2. Множественное число с артиклем", options: vals(it.definiteOptions), correct: it.definite });
-      if (it.ruPl) {
-        rows.push({ key: "ruPl", label: "3. Перевод (множественное число)",
-                    options: vals(shuffle([it.ruPl].concat(distractors(it.ruPl, nouns, 2, "ruPl")))),
-                    correct: it.ruPl });
-      }
+                   correct: it.adjRu });
     } else {
       var preps = FM_MODES.prep.list.map(function (x) { return x.data; });
       var meanings = [];
@@ -1623,6 +1623,12 @@
         '<div class="pair-answer-ru">' + escapeHtml(it.subject) + " — " + GENDER_LABEL[it.gender] +
         " · прилаг. " + escapeHtml(it.adjForm) + " · глаг. " + escapeHtml(it.verbForm) + "</div>";
     }
+    if (mode === "noun") {
+      return '<div class="pair-answer">' + escapeHtml(it.subject) + " → " + escapeHtml(it.definite) + "</div>" +
+        '<div class="pair-answer-ru">' + escapeHtml(it.nounRu) + " — " + GENDER_LABEL[it.gender] +
+        " · мн. ч. " + escapeHtml(it.plural) + " (модель " + pluralKind(it.plural) + ")" +
+        (it.ruPl ? " · " + escapeHtml(it.ruPl) : "") + "</div>";
+    }
     if (mode === "conj") {
       return '<div class="pair-answer">' + escapeHtml(it.pron) + " " + escapeHtml(it.form) + "</div>" +
         '<div class="pair-answer-ru">' + escapeHtml(it.verbRu) + " · " + escapeHtml(it.pronRu) + "</div>";
@@ -1631,16 +1637,6 @@
       return '<div class="pair-answer">' + escapeHtml(it.subject) + " " + escapeHtml(it.adjForm) + "</div>" +
         '<div class="pair-answer-ru">' + escapeHtml(it.nounRu) + " — " + GENDER_LABEL[it.gender] +
         " · прилаг. " + escapeHtml(it.adjForm) + " — " + escapeHtml(it.adjRu) + "</div>";
-    }
-    if (mode === "gender") {
-      return '<div class="pair-answer">' + escapeHtml(it.subject) + " — " + GENDER_LABEL[it.gender] + "</div>" +
-        '<div class="pair-answer-ru">' + escapeHtml(it.nounRu) + "</div>";
-    }
-    if (mode === "plural") {
-      return '<div class="pair-answer">' + escapeHtml(it.noun) + " → " + escapeHtml(it.definite) + "</div>" +
-        '<div class="pair-answer-ru">' + escapeHtml(it.nounRu) +
-        (it.ruPl ? " → " + escapeHtml(it.ruPl) : "") + " (" + GENDER_LABEL[it.gender] +
-        ") · мн. ч. " + escapeHtml(it.plural) + "</div>";
     }
     return '<div class="pair-answer">' + escapeHtml(it.prep) + " + " + escapeHtml(it.subject) +
       " → " + escapeHtml(it.fused) + "</div>" +

@@ -22,6 +22,12 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WIKI_URL = "https://kaikki.org/dictionary/Maltese/kaikki.org-dictionary-Maltese.jsonl"
 FIELDS = ("ru", "pos", "g", "art", "pl", "forms", "pres")
 
+# расхождения, разобранные вручную: наша форма верна, Викисловарь ошибается
+WIKI_WRONG = {
+    "Mellieħi": "Mellieħin — из списка учителя, подтвердил Gemini; Викисловарь даёт Melliħin",
+    "friġġ": "friġġijiet — из списка учителя, подтвердил Gemini; Викисловарь даёт friġis",
+}
+
 
 def load_words():
     out = {}
@@ -83,6 +89,7 @@ def main():
 
     same = fill = 0
     clashes = []
+    justified = []
     for mt, w in words.items():
         k = wiki.get(mt)
         if not k:
@@ -92,6 +99,8 @@ def main():
                 fill += 1
             elif w["pl"] == k["pl"]:
                 same += 1
+            elif mt in WIKI_WRONG:
+                justified.append((mt, w["pl"], WIKI_WRONG[mt]))
             else:
                 clashes.append((mt, "мн.ч.", w["pl"], k["pl"]))
         if w.get("pos") == "adj":
@@ -110,7 +119,9 @@ def main():
     covered = sum(1 for mt in words if mt in wiki)
     print("слов: %d | есть в Викисловаре: %d" % (len(words), covered))
     print("совпало форм: %d | можно дозаполнить: %d" % (same, fill))
-    print("расхождений: %d" % len(clashes))
+    print("расхождений: %d | разобрано вручную: %d" % (len(clashes), len(justified)))
+    for mt, ours, why in justified:
+        print("   %-12s у нас %-14s %s" % (mt, ours, why))
     for mt, what, mine, theirs in clashes:
         print("   %-12s %-7s у нас %-16s Викисловарь %s" % (mt, what, mine, theirs))
     return 1 if clashes else 0
