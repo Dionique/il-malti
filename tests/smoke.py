@@ -1298,10 +1298,10 @@ def main():
           })""")
         check("REQ-OFFLINE-03 в кэше все файлы приложения",
               cache["count"] >= 15 and cache["hasApp"] and cache["hasData"] and cache["hasManifest"], True)
-        # имя кэша = il-malti-<версия>; версия берётся из sw.js рядом со страницей
+        # имя кэша = il-malti-<версия>; версия — из того sw.js, что отдан странице
         import re as _re2
-        sw_text = open(os.path.join(ROOT, "sw.js"), encoding="utf-8").read()
-        m = _re2.search(r'var BUILD = "([^"]+)"', sw_text)
+        sw_text = page.evaluate("() => fetch('sw.js').then(r => r.text())")
+        m = _re2.search(r'var BUILD = "([^"]+)"', sw_text or "")
         check("REQ-OFFLINE-03 в кэше стоит версия сборки",
               bool(m) and cache["name"] == "il-malti-" + m.group(1), True)
 

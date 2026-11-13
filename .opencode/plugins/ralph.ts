@@ -6,7 +6,7 @@ import type { Plugin } from "@opencode-ai/plugin"
 // ── Настройки ────────────────────────────────────────────────────────────────
 // Сколько раз плагин сам подкидывает агенту «продолжай» (то есть максимум
 // столько же дополнительных ответов сверх первого).
-const MAX_ITERATIONS = 5
+const MAX_ITERATIONS = 10
 // Жёсткий предел по времени на весь цикл: сколько бы итераций ни осталось,
 // после этого срока цикл останавливается.
 const MAX_MINUTES = 60
@@ -173,7 +173,7 @@ export const RalphPlugin: Plugin = async ({ client, directory }) => {
       for (const name of COMMANDS) {
         if (input.command[name]) continue
         input.command[name] = {
-          description: "Ralph-loop: до 5 итераций, тег DONE принимается только после зелёных проверок",
+          description: "Ralph-loop: до 10 итераций, тег DONE принимается только после зелёных проверок",
           agent: AGENT,
           template: `Задача Ralph-loop: $ARGUMENTS`,
         }
