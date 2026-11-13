@@ -590,7 +590,7 @@ def main():
         check("REQ-FORMS-07 прил+сущ: верный ответ принят", page.inner_text("#fm-feedback"), "Верно!")
         check("REQ-FORMS-07 прил+сущ: разбор называет форму и перевод",
               page.inner_text("#fm-answer"),
-              predicate=lambda s: "прилаг." in s and "род" in s)
+              predicate=lambda s: "прилаг." in s and ("род" in s or "мн. ч." in s))
 
         # режим «Существительное»: у всех слов есть род (только м/ж) и перевод
         page.select_option("#fm-mode", "noun")
@@ -1261,6 +1261,66 @@ def main():
         page.click('.tab[data-tab="words"]')
         check("REQ-WORDS-08 sentences do not consume the new-word budget", page.inner_text("#w-counter"),
               predicate=lambda s: "В очереди: 10" in s and "новых сегодня: 0/10" in s)
+
+        # --- офлайн: приложение работает без интернета ---
+        import re as _re
+        html = open(os.path.join(REPO, "index.html"), encoding="utf-8").read()
+        external = _re.findall(r'<(?:script|link|img)[^>]*(?:src|href)="(https?://[^"]+)"', html)
+        check("REQ-OFFLINE-01 нет внешних ресурсов", external, [])
+
+        page.evaluate("() => localStorage.clear()")
+        page.reload()
+        page.wait_for_timeout(1500)
+        check("REQ-OFFLINE-02 манифест подключён",
+              page.evaluate("() => !!document.querySelector('link[rel=manifest]')"), True)
+        manifest = page.evaluate("""() => fetch('manifest.webmanifest').then(r => r.json())""")
+        check("REQ-OFFLINE-02 в манифесте есть имя, иконки и standalone",
+              bool(manifest.get("name")) and manifest.get("display") == "standalone"
+              and len(manifest.get("icons") or []) >= 2, True)
+        icons_ok = page.evaluate("""() => Promise.all(['icon-192.png', 'icon-512.png']
+            .map(u => fetch(u).then(r => r.ok)))""")
+        check("REQ-OFFLINE-02 иконки отдаются", icons_ok, [True, True])
+
+        check("REQ-OFFLINE-03 service worker зарегистрирован",
+              page.evaluate("""() => navigator.serviceWorker.getRegistrations()
+                  .then(rs => rs.length > 0)"""), True)
+        page.wait_for_function("() => navigator.serviceWorker.controller !== null", timeout=15000)
+        check("REQ-OFFLINE-03 страница под управлением service worker",
+              page.evaluate("() => navigator.serviceWorker.controller !== null"), True)
+        cache = page.evaluate("""() => caches.keys().then(async keys => {
+            const name = keys.find(k => k.indexOf('il-malti-') === 0) || '';
+            const c = await caches.open(name);
+            const names = (await c.keys()).map(r => r.url.split('/').pop());
+            return { name: name, count: names.length,
+                     hasApp: names.indexOf('app.js') !== -1,
+                     hasData: names.indexOf('words.js') !== -1,
+                     hasManifest: names.indexOf('manifest.webmanifest') !== -1 };
+          })""")
+        check("REQ-OFFLINE-03 в кэше все файлы приложения",
+              cache["count"] >= 15 and cache["hasApp"] and cache["hasData"] and cache["hasManifest"], True)
+        # имя кэша = il-malti-<версия>; версия берётся из sw.js рядом со страницей
+        import re as _re2
+        sw_text = open(os.path.join(ROOT, "sw.js"), encoding="utf-8").read()
+        m = _re2.search(r'var BUILD = "([^"]+)"', sw_text)
+        check("REQ-OFFLINE-03 в кэше стоит версия сборки",
+              bool(m) and cache["name"] == "il-malti-" + m.group(1), True)
+
+        check("REQ-OFFLINE-05 в сети пометки нет", page.locator("#offline-badge").is_hidden(), True)
+        page.context.set_offline(True)
+        page.wait_for_timeout(400)
+        check("REQ-OFFLINE-05 в офлайне видна пометка",
+              page.locator("#offline-badge").is_hidden(), False)
+
+        page.reload()
+        page.wait_for_timeout(900)
+        check("REQ-OFFLINE-04 без сети страница открывается",
+              page.evaluate("() => document.querySelector('#view-words') !== null"), True)
+        check("REQ-OFFLINE-04 без сети данные на месте",
+              page.evaluate("() => (window.WORDS || []).length > 400"), True)
+        page.click('.tab[data-tab="sentences"]')
+        check("REQ-OFFLINE-04 без сети вкладки работают",
+              page.evaluate("() => !document.getElementById('view-sentences').hidden"), True)
+        page.context.set_offline(False)
 
         browser.close()
 

@@ -29,6 +29,7 @@ python3 tools/make_links.py           # связи фраз со словарё�
 python3 tools/make_forms.py --check   # правило артикля на всём словаре
 python3 tools/make_forms.py           # формы: согласование, род, мн. ч., предлоги
 python3 tools/make_blanks.py          # упражнения на пропуски
+python3 tools/make_icons.py            # иконки приложения (192 и 512)
 python3 tools/check_dialogues.py      # переводы и лексика диалогов
 python3 tools/check_forms_against_wiki.py   # формы против Викисловаря (REQ-DATA-05)
 python3 tools/check_verbs_against_verbmt.py # спряжение против verb.mt (REQ-DATA-06)
@@ -43,6 +44,7 @@ bin/maltese status|restart|logs        # локальный сервер на ma
 
 ```
 index.html  styles.css  app.js      приложение (app.js — вся логика)
+sw.js  manifest.webmanifest  icon-*.png   офлайн и установка
 data/                               данные: слова, фразы, диалоги, упражнения
   words.js        словарные статьи
   sentences.js    фразы
@@ -136,9 +138,14 @@ server.js                           локальный сервер для ра�
 
 ## Состояние
 
-- Проверок: 290 (`tests/smoke.py`), прогоняются локально, против `dist/` и
+- Проверок: 302 (`tests/smoke.py`), прогоняются локально, против `dist/` и
   против живого сайта.
-- Требований: 79 в `specs/`.
+- Требований: 84 в `specs/`.
+- Приложение работает без интернета: `sw.js` кладёт в кэш страницу, стили,
+  скрипт, данные, манифест и иконки, имя кэша — версия сборки (`bin/build`
+  подставляет отпечаток содержимого). Есть `manifest.webmanifest` и иконки
+  (`tools/make_icons.py`) — устанавливается на телефон и компьютер. В
+  офлайне в шапке видна пометка. REQ-OFFLINE-01..05.
 - Словарь: 513 слов, 393 фраз, 32 диалога (195 реплик),
   803 упражнения на формы (согласование 51, сущ + прил 140, спряжение 224,
   существительное: род и число 232, предлоги 156), 140 на пропуски.

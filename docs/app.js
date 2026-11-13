@@ -2461,6 +2461,25 @@
 
   /* ---------- init ---------- */
 
+  // Офлайн: приложение кладётся в кэш при первой загрузке и дальше
+  // открывается без сети (REQ-OFFLINE-03, REQ-OFFLINE-04).
+  function initOffline() {
+    var badge = $("offline-badge");
+    function render() {
+      if (badge) badge.hidden = navigator.onLine !== false;
+    }
+    render();
+    window.addEventListener("online", render);
+    window.addEventListener("offline", render);
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("sw.js").catch(function () {
+          // без service worker приложение просто работает как раньше
+        });
+      });
+    }
+  }
+
   function init() {
     loadState();
     // Секции инициализируются до initTabs: selectTab рендерит активную
@@ -2475,6 +2494,7 @@
     initTabs();
     $("s-chips").addEventListener("click", onChipClick);
     $("s-answer").addEventListener("click", onChipClick);
+    initOffline();
   }
 
   if (document.readyState === "loading") {

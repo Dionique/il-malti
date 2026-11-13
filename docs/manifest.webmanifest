@@ -1,0 +1,26 @@
+{
+  "name": "Il-Malti — учим мальтийский",
+  "short_name": "Il-Malti",
+  "description": "Слова, фразы, формы и диалоги мальтийского языка. Работает без интернета.",
+  "lang": "ru",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#8f1d1d",
+  "background_color": "#f6f4f1",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

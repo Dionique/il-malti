@@ -21,6 +21,9 @@ FILES=(
   index.html
   styles.css
   app.js
+  manifest.webmanifest
+  icon-192.png
+  icon-512.png
   data/words.js
   data/sentences.js
   data/ipa.js
@@ -43,6 +46,17 @@ mkdir -p "$DIST/data"
 for f in "${FILES[@]}"; do
   cp "$f" "$DIST/$f"
 done
+
+# Service worker: копируем и подставляем версию сборки. Имя кэша зависит от
+# версии, поэтому новая сборка заменяет старый кэш (REQ-OFFLINE-03).
+# Версия — отпечаток содержимого всех файлов приложения.
+BUILD_ID="$(cat "${FILES[@]}" | shasum -a 256 | cut -c1-12)"
+sed "s/__BUILD__/${BUILD_ID}/" sw.js > "$DIST/sw.js"
+if grep -q "__BUILD__" "$DIST/sw.js"; then
+  echo "error: sw.js: версия сборки не подставлена" >&2
+  exit 1
+fi
+echo "  sw.js: версия сборки $BUILD_ID"
 
 # Netlify/GitHub Pages serve 404.html; keep it self-contained so it works
 # both at the site root and under a sub-path (GitHub Pages project sites).
