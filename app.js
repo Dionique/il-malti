@@ -207,6 +207,28 @@
     return a;
   }
 
+  // Рассыпать по группам «по кругу»: две карточки одной группы подряд не идут.
+  // Чистый shuffle этого не гарантирует — при 33 числах из 513 две подряд
+  // выпадают с вероятностью ~4%, а в существительных модели -ijiet и того чаще.
+  function spread(arr, key) {
+    var groups = {}, order = [], i, k;
+    for (i = 0; i < arr.length; i++) {
+      k = key(arr[i]);
+      if (!groups[k]) { groups[k] = []; order.push(k); }
+      groups[k].push(arr[i]);
+    }
+    shuffle(order);
+    var out = [], more = true;
+    while (more) {
+      more = false;
+      for (i = 0; i < order.length; i++) {
+        var g = groups[order[i]];
+        if (g.length) { out.push(g.shift()); more = true; }
+      }
+    }
+    return out;
+  }
+
   function topicLabel(t) { return TOPICS[t] || t; }
 
   function escapeHtml(s) {
@@ -388,7 +410,7 @@
       return state.items[wid(a)].d - state.items[wid(b)].d;
     });
 
-    var news = shuffle(pool.filter(isNewWord));
+      var news = spread(shuffle(pool.filter(isNewWord)), function (w) { return w.topic; });
     var allowed = wBypass ? news.length : newRemaining();
     if (allowed !== Infinity) news = news.slice(0, allowed);
 
@@ -652,7 +674,7 @@
       sLocked = 0;
       sUnlocked = BLANKS.length;
       if (sReviewAll) {
-        sPool = shuffle(BLANKS.slice());
+        sPool = spread(shuffle(BLANKS.slice()), function (b) { return b.blanks[0].hint; });
         showSentence();
         return;
       }
@@ -688,8 +710,10 @@
     });
 
     // Сначала самые "знакомые" фразы: меньше незнакомых слов.
-    var news = unlocked.filter(function (s) { return !hasRec(sid(s)); })
-      .sort(function (a, b) { return unfamiliarOf(a).length - unfamiliarOf(b).length; });
+      var news = unlocked.filter(function (s) { return !hasRec(sid(s)); })
+        .sort(function (a, b) { return unfamiliarOf(a).length - unfamiliarOf(b).length; });
+      // рассыпаем по темам, сохраняя порядок «сначала знакомее»
+      news = spread(news, function (s) { return s.topic; });
 
     var allowed = sBypass ? news.length : sentRemaining();
     if (allowed !== Infinity) news = news.slice(0, allowed);
@@ -1354,6 +1378,16 @@
     fmBuild();
   }
 
+  // Группа для раскладки по кругу: что считается «одним разделом» в режиме.
+  var FM_GROUP = {
+    pair: function (it) { return it.subject; },
+    agree: function (it) { return it.subject; },
+    adjagree: function (it) { return it.adj; },
+    noun: function (it) { return pluralKind(it.plural); },
+    conj: function (it) { return it.verb; },
+    prep: function (it) { return it.prep; }
+  };
+
   function fmBuild() {
     var mode = fmMode();
     var all = fmCurrentList();
@@ -1372,7 +1406,8 @@
       return state.items[a.uid].d - state.items[b.uid].d;
     });
 
-    var news = shuffle(all.filter(function (x) { return !state.items[x.uid]; }));
+    var news = spread(shuffle(all.filter(function (x) { return !state.items[x.uid]; })),
+                      FM_GROUP[mode] || function (x) { return x.uid; });
     var allowed = fmBypass ? news.length : fmRemaining(mode);
     if (allowed !== Infinity) news = news.slice(0, allowed);
 
@@ -1731,7 +1766,8 @@
     }).sort(function (a, b) {
       return state.items[a.uid].d - state.items[b.uid].d;
     });
-    var fresh = shuffle(all.filter(function (x) { return !state.items[x.uid]; }));
+    var fresh = spread(shuffle(all.filter(function (x) { return !state.items[x.uid]; })),
+                       function (x) { return x.d.id; });
     var left = dgRemaining();
     if (left !== Infinity) fresh = fresh.slice(0, left);
     dgQueue = due.concat(fresh);

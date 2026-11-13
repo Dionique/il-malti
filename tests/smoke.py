@@ -1262,6 +1262,55 @@ def main():
         check("REQ-WORDS-08 sentences do not consume the new-word budget", page.inner_text("#w-counter"),
               predicate=lambda s: "В очереди: 10" in s and "новых сегодня: 0/10" in s)
 
+        # --- перемешивание: рядом не бывает двух из одной группы ---
+        page.evaluate("() => localStorage.clear()")
+        page.reload()
+        page.select_option("#w-limit", "0")
+        word_topics = []
+        for _ in range(12):
+            if page.locator("#w-show").is_hidden():
+                break
+            word_topics.append(page.inner_text("#w-tag").split(" · ")[0])
+            page.click("#w-show")
+            page.click("#w-yes")
+        adj = [i for i in range(1, len(word_topics)) if word_topics[i] == word_topics[i - 1]]
+        check("REQ-MIX-01 рядом нет двух слов одной темы", adj, [])
+        check("REQ-MIX-01 слов в очереди достаточно для проверки", len(word_topics),
+              predicate=lambda n: n >= 8)
+
+        page.evaluate("() => localStorage.clear()")
+        page.reload()
+        page.click('.tab[data-tab="forms"]')
+        page.select_option("#fm-mode", "conj")
+        conj_verbs = []
+        last_prompt = None
+        for _ in range(14):
+            if len(conj_verbs) >= 8:
+                break
+            parts = page.evaluate("""() => [...document.querySelectorAll('#fm-prompt .pair-part')]
+                .map(e => e.textContent)""")
+            if len(parts) < 2:
+                break
+            prompt = tuple(parts)
+            if prompt == last_prompt:
+                # карточка ещё не сменилась — ждём, а не записываем её второй раз
+                page.wait_for_timeout(600)
+                continue
+            last_prompt = prompt
+            conj_verbs.append(parts[1])
+            rows = page.evaluate("() => JSON.parse(document.getElementById('fm-correct').value)")
+            for r in rows:
+                page.evaluate("""r => {
+                  const box = document.querySelector("#fm-quiz .quiz-options[data-key='" + r.key + "']");
+                  [...box.querySelectorAll('.opt')].find(o => o.dataset.value === r.correct).click();
+                }""", r)
+            page.click("#fm-check")
+            page.wait_for_timeout(1300)
+        adj2 = [i for i in range(1, len(conj_verbs)) if conj_verbs[i] == conj_verbs[i - 1]]
+        check("REQ-MIX-01 рядом нет двух форм одного глагола", adj2, [])
+        check("REQ-MIX-01 глаголов в очереди достаточно", len(conj_verbs),
+              predicate=lambda n: n >= 5)
+
         # --- офлайн: приложение работает без интернета ---
         import re as _re
         html = open(os.path.join(REPO, "index.html"), encoding="utf-8").read()
