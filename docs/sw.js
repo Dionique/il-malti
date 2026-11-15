@@ -9,7 +9,7 @@
  * действия (scope), а она должна накрывать всё приложение.
  */
 
-var BUILD = "0b7c99ef2f1a";
+var BUILD = "2481d8500d19";
 var CACHE = "il-malti-" + BUILD;
 
 var FILES = [

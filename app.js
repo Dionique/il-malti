@@ -1406,8 +1406,11 @@
       return state.items[a.uid].d - state.items[b.uid].d;
     });
 
+    // элементы режимов форм — обёртки {data, uid}, поэтому ключ читаем из .data
+    var group = FM_GROUP[mode];
     var news = spread(shuffle(all.filter(function (x) { return !state.items[x.uid]; })),
-                      FM_GROUP[mode] || function (x) { return x.uid; });
+                      group ? function (x) { return group(x.data); }
+                            : function (x) { return x.uid; });
     var allowed = fmBypass ? news.length : fmRemaining(mode);
     if (allowed !== Infinity) news = news.slice(0, allowed);
 

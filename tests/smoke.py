@@ -15,6 +15,7 @@ import functools
 import http.server
 import json
 import os
+import re
 import socketserver
 import subprocess
 import sys
@@ -1282,7 +1283,7 @@ def main():
         page.reload()
         page.click('.tab[data-tab="forms"]')
         page.select_option("#fm-mode", "conj")
-        conj_verbs = []
+        conj_verbs = []   # (номер упражнения в проходе, глагол)
         last_prompt = None
         for _ in range(14):
             if len(conj_verbs) >= 8:
@@ -1297,7 +1298,9 @@ def main():
                 page.wait_for_timeout(600)
                 continue
             last_prompt = prompt
-            conj_verbs.append(parts[1])
+            counter = page.inner_text("#fm-counter")
+            num = re.search(r"Упражнение (\d+) из", counter)
+            conj_verbs.append((int(num.group(1)) if num else 0, parts[1]))
             rows = page.evaluate("() => JSON.parse(document.getElementById('fm-correct').value)")
             for r in rows:
                 page.evaluate("""r => {
@@ -1306,7 +1309,11 @@ def main():
                 }""", r)
             page.click("#fm-check")
             page.wait_for_timeout(1300)
-        adj2 = [i for i in range(1, len(conj_verbs)) if conj_verbs[i] == conj_verbs[i - 1]]
+        # соседство проверяем только внутри одного прохода: на стыке двух
+        # проходов очередь собирается заново, и совпадение там не нарушение
+        adj2 = [i for i in range(1, len(conj_verbs))
+                if conj_verbs[i][1] == conj_verbs[i - 1][1]
+                and conj_verbs[i][0] == conj_verbs[i - 1][0] + 1]
         check("REQ-MIX-01 рядом нет двух форм одного глагола", adj2, [])
         check("REQ-MIX-01 глаголов в очереди достаточно", len(conj_verbs),
               predicate=lambda n: n >= 5)
